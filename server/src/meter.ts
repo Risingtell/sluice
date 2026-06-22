@@ -5,12 +5,16 @@
  * for the wall-clock time the agent held the stream since its last paid tick. Pay the tick → get
  * the next chunk. Skip/refuse a tick → the next chunk never comes (the "sluice gate" shuts). Every
  * successful tick is one real (or, in MOCK mode, simulated) on-chain settlement.
+ *
+ * Billing is split into two phases so the same core serves both paths:
+ *   - quoteTick():  pure computation of what this tick owes (no mutation). In LIVE mode this feeds
+ *                   the x402 DynamicPrice function BEFORE the facilitator settles.
+ *   - commitTick(): records the settlement + advances the session AFTER it has been paid (in LIVE
+ *                   mode, from the AfterSettleHook with the real on-chain tx hash).
  */
 
 import { randomUUID } from "node:crypto";
 import type { Session, SettlementEvent, StreamSpec } from "../../shared/types.ts";
-import type { SettlementProvider, TickContext } from "./settlement.ts";
-import type { Store } from "./store.ts";
 
 export interface MeterConfig {
   payTo: string;
@@ -18,10 +22,32 @@ export interface MeterConfig {
   maxTickSeconds: number;
 }
 
+/** A computed-but-not-yet-settled charge for one tick. */
+export interface TickQuote {
+  session: Session;
+  stream: StreamSpec;
+  /** Wall-clock instant the quote was taken; commit bills exactly up to here. */
+  at: number;
+  elapsedMs: number;
+  seconds: number;
+  /** Motes owed for this tick, as a decimal string. */
+  amount: string;
+}
+
+/** The outcome of paying a tick — synthetic in MOCK mode, a real CEP-18 transfer when live. */
+export interface SettlementResult {
+  txHash: string;
+  explorerUrl: string;
+  network: string;
+}
+
 export class StreamingMeter {
   constructor(
-    private readonly store: Store,
-    private readonly provider: SettlementProvider,
+    private readonly store: { streams: Map<string, StreamSpec> } & {
+      getSession(id: string): Session | undefined;
+      putSession(s: Session): void;
+      addEvent(e: SettlementEvent): void;
+    },
     private readonly cfg: MeterConfig,
   ) {}
 
@@ -43,66 +69,55 @@ export class StreamingMeter {
     return session;
   }
 
-  /**
-   * Settle one tick for a session and return the settlement plus how much was billed.
-   * Throws (and halts the session) if the underlying payment did not land.
-   */
-  async settleTick(
-    req: TickContext["req"],
-    res: TickContext["res"],
-    sessionId: string,
-  ): Promise<{ session: Session; settlement: SettlementEvent; seconds: number }> {
+  /** Compute what the next tick owes, without mutating anything. Throws if the session can't tick. */
+  quoteTick(sessionId: string): TickQuote {
     const session = this.store.getSession(sessionId);
     if (!session) throw new MeterError(404, "unknown session");
     if (session.status !== "active") throw new MeterError(409, `session is ${session.status}`);
 
     const stream = this.requireStream(session.streamId);
-    const now = Date.now();
-    const elapsedMs = Math.min(now - session.lastSettledAt, this.cfg.maxTickSeconds * 1000);
-    const seconds = elapsedMs / 1000;
+    const at = Date.now();
+    const elapsedMs = Math.min(at - session.lastSettledAt, this.cfg.maxTickSeconds * 1000);
     const amount = (BigInt(stream.ratePerSecond) * BigInt(elapsedMs)) / 1000n;
+    return { session, stream, at, elapsedMs, seconds: elapsedMs / 1000, amount: amount.toString() };
+  }
 
-    const ctx: TickContext = {
-      session,
-      stream,
-      amount: amount.toString(),
-      seconds,
-      payTo: this.cfg.payTo,
-      req,
-      res,
-    };
-
-    let result;
-    try {
-      result = await this.provider.settleTick(ctx);
-    } catch (err) {
-      this.halt(session, (err as Error).message || "settlement failed");
-      throw new MeterError(402, `tick unpaid — stream halted: ${(err as Error).message}`);
-    }
+  /** Record a paid tick: append the settlement event and advance the session up to quote.at. */
+  commitTick(quote: TickQuote, result: SettlementResult): { session: Session; event: SettlementEvent } {
+    const session = this.store.getSession(quote.session.id);
+    if (!session) throw new MeterError(404, "unknown session");
 
     const event: SettlementEvent = {
       id: randomUUID(),
       sessionId: session.id,
-      streamId: stream.id,
+      streamId: session.streamId,
       agent: session.agent,
       payTo: this.cfg.payTo,
-      amount: amount.toString(),
-      asset: stream.asset,
-      seconds,
+      amount: quote.amount,
+      asset: quote.stream.asset,
+      seconds: quote.seconds,
       network: result.network,
       txHash: result.txHash,
       explorerUrl: result.explorerUrl,
-      settledAt: now,
+      settledAt: quote.at,
     };
     this.store.addEvent(event);
 
-    session.lastSettledAt = now;
-    session.settledMs += elapsedMs;
+    session.lastSettledAt = quote.at;
+    session.settledMs += quote.elapsedMs;
     session.ticks += 1;
-    session.totalPaid = (BigInt(session.totalPaid) + amount).toString();
+    session.totalPaid = (BigInt(session.totalPaid) + BigInt(quote.amount)).toString();
     this.store.putSession(session);
 
-    return { session, settlement: event, seconds };
+    return { session, event };
+  }
+
+  halt(sessionId: string, reason: string): void {
+    const session = this.store.getSession(sessionId);
+    if (!session) return;
+    session.status = "halted";
+    session.haltedReason = reason;
+    this.store.putSession(session);
   }
 
   closeSession(sessionId: string): Session {
@@ -113,12 +128,6 @@ export class StreamingMeter {
       this.store.putSession(session);
     }
     return session;
-  }
-
-  private halt(session: Session, reason: string): void {
-    session.status = "halted";
-    session.haltedReason = reason;
-    this.store.putSession(session);
   }
 
   private requireStream(streamId: string): StreamSpec {

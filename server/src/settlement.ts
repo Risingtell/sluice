@@ -1,40 +1,21 @@
 /**
- * Settlement abstraction.
+ * Settlement abstraction for the MOCK path.
  *
- * The streaming meter is deliberately decoupled from *how* a tick is paid. In MOCK mode
- * (no creds needed) the MockSettlementProvider simulates an on-chain settlement so the whole
- * streaming UX + /impact proof feed are buildable offline. In LIVE mode (D2) the Casper x402
- * provider records the real CEP-18 `transfer_with_authorization` that the @x402/express
- * middleware settled via the hosted facilitator.
+ * The streaming meter is decoupled from *how* a tick is paid. In MOCK mode (no creds) the
+ * MockSettlementProvider simulates an on-chain settlement so the whole streaming UX + /impact proof
+ * feed are buildable offline. In LIVE mode the @x402/express middleware settles the real CEP-18
+ * `transfer_with_authorization` via the hosted facilitator, and the meter's commitTick() is driven
+ * from the AfterSettleHook instead of from a provider — so this interface is the MOCK path only.
  */
 
 import { randomBytes } from "node:crypto";
-import type { Request, Response } from "express";
-import type { Session, StreamSpec } from "../../shared/types.ts";
-
-export interface TickContext {
-  session: Session;
-  stream: StreamSpec;
-  /** Motes owed for this tick. */
-  amount: string;
-  /** Seconds of consumption this tick covers. */
-  seconds: number;
-  payTo: string;
-  req: Request;
-  res: Response;
-}
-
-export interface SettlementResult {
-  txHash: string;
-  explorerUrl: string;
-  network: string;
-}
+import type { SettlementResult, TickQuote } from "./meter.ts";
 
 export interface SettlementProvider {
   readonly network: string;
   readonly mock: boolean;
-  /** Settle (or confirm settlement of) one tick. Must throw if the tick was not paid. */
-  settleTick(ctx: TickContext): Promise<SettlementResult>;
+  /** Settle one quoted tick. Must throw if the tick was not paid. */
+  settle(quote: TickQuote): Promise<SettlementResult>;
 }
 
 /**
@@ -47,11 +28,8 @@ export class MockSettlementProvider implements SettlementProvider {
 
   constructor(private readonly latencyMs = 40) {}
 
-  async settleTick(_ctx: TickContext): Promise<SettlementResult> {
-    if (this.latencyMs > 0) {
-      await new Promise((r) => setTimeout(r, this.latencyMs));
-    }
-    const txHash = randomBytes(32).toString("hex");
-    return { txHash, explorerUrl: "", network: this.network };
+  async settle(_quote: TickQuote): Promise<SettlementResult> {
+    if (this.latencyMs > 0) await new Promise((r) => setTimeout(r, this.latencyMs));
+    return { txHash: randomBytes(32).toString("hex"), explorerUrl: "", network: this.network };
   }
 }

@@ -12,6 +12,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@make-software/casper-x402": "^1.0.0",
+    "@x402/core": "^2.16.0",
+    "@x402/express": "^2.16.0",
+    "@x402/fetch": "^2.16.0",
+    "casper-js-sdk": "^5.0.12",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.2"

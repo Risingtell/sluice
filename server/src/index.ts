@@ -15,12 +15,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const streams = new Map(STREAMS.map((s) => [s.id, s]));
 const store = new Store(streams, cfg.snapshotPath);
 
-// D1: MOCK provider. D2 swaps in a Casper x402 provider behind the same interface.
+const meter = new StreamingMeter(store, { payTo: cfg.payTo, maxTickSeconds: cfg.maxTickSeconds });
+
+// MOCK path provider. In LIVE mode the @x402/express middleware settles instead (D4), driving
+// meter.commitTick() from its AfterSettleHook with the real CEP-18 transfer hash.
 const provider: SettlementProvider = new MockSettlementProvider();
-const meter = new StreamingMeter(store, provider, {
-  payTo: cfg.payTo,
-  maxTickSeconds: cfg.maxTickSeconds,
-});
 
 const app = express();
 app.use(cors());
@@ -52,9 +51,17 @@ app.post("/sessions", (req, res) => {
 // @x402/express paymentMiddleware (D2); the meter then records the settlement the middleware made.
 app.post("/sessions/:id/next", async (req, res) => {
   try {
-    const { session, settlement } = await meter.settleTick(req, res, req.params.id);
+    const quote = meter.quoteTick(req.params.id);
+    let result;
+    try {
+      result = await provider.settle(quote);
+    } catch (err) {
+      meter.halt(req.params.id, (err as Error).message || "settlement failed");
+      return res.status(402).json({ error: `tick unpaid — stream halted: ${(err as Error).message}` });
+    }
+    const { session, event } = meter.commitTick(quote, result);
     const data = nextChunk(session.streamId, session.ticks);
-    const payload: TickResponse = { session, settlement, data };
+    const payload: TickResponse = { session, settlement: event, data };
     res.json(payload);
   } catch (err) {
     sendMeterError(res, err);
