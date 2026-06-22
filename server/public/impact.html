@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sluice — live settlement proof feed</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: #0a0e14; color: #cdd6f4; padding: 32px; }
+      h1 { font-size: 22px; margin: 0 0 4px; color: #89dceb; }
+      .sub { color: #7f849c; margin-bottom: 24px; }
+      .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 12px;
+        background: #f9e2af22; color: #f9e2af; border: 1px solid #f9e2af44; }
+      .badge.live { background: #a6e3a122; color: #a6e3a1; border-color: #a6e3a144; }
+      .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px; margin-bottom: 28px; }
+      .stat { background: #11161f; border: 1px solid #1e2530; border-radius: 10px; padding: 14px 16px; }
+      .stat .n { font-size: 26px; color: #89dceb; font-weight: 600; }
+      .stat .l { font-size: 12px; color: #7f849c; text-transform: uppercase; letter-spacing: .04em; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #1e2530; font-size: 13px; }
+      th { color: #7f849c; font-weight: 500; }
+      td.hash a { color: #89b4fa; text-decoration: none; }
+      td.amt { color: #a6e3a1; }
+      .agent { color: #cba6f7; }
+    </style>
+  </head>
+  <body>
+    <h1>💧 Sluice — live settlement proof feed</h1>
+    <div class="sub">
+      Per-second streaming payments settled on Casper x402. Every row is one on-chain tick.
+      <span id="mode" class="badge">…</span>
+    </div>
+    <div class="stats" id="stats"></div>
+    <table>
+      <thead>
+        <tr><th>time</th><th>agent</th><th>stream</th><th>sec</th><th>amount</th><th>tx</th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <script>
+      const cspr = (m) => (Number(BigInt(m)) / 1e9).toFixed(6);
+      const fmtTime = (t) => new Date(t).toLocaleTimeString();
+      async function tick() {
+        try {
+          const s = await fetch("/impact").then((r) => r.json());
+          const mode = document.getElementById("mode");
+          mode.textContent = s.mock ? "MOCK MODE" : "LIVE · " + s.network;
+          mode.className = "badge" + (s.mock ? "" : " live");
+          const t = s.totals;
+          document.getElementById("stats").innerHTML = [
+            ["settlements", t.settlements.toLocaleString()],
+            ["total paid", cspr(t.totalPaid) + " " + t.asset],
+            ["seconds streamed", t.secondsStreamed.toLocaleString()],
+            ["active sessions", t.activeSessions],
+            ["unique agents", t.uniqueAgents],
+          ].map(([l, n]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+          document.getElementById("rows").innerHTML = s.recent.map((e) => `
+            <tr>
+              <td>${fmtTime(e.settledAt)}</td>
+              <td class="agent">${e.agent}</td>
+              <td>${e.streamId}</td>
+              <td>${e.seconds.toFixed(1)}</td>
+              <td class="amt">${cspr(e.amount)} ${e.asset}</td>
+              <td class="hash">${e.explorerUrl ? `<a href="${e.explorerUrl}" target="_blank">${e.txHash.slice(0,16)}…</a>` : e.txHash.slice(0,16) + "…"}</td>
+            </tr>`).join("");
+        } catch (err) { /* server starting */ }
+      }
+      tick();
+      setInterval(tick, 1000);
+    </script>
+  </body>
+</html>
