@@ -6,6 +6,7 @@ import { loadConfig, STREAMS } from "./config.ts";
 import { Store } from "./store.ts";
 import { StreamingMeter, MeterError } from "./meter.ts";
 import { MockSettlementProvider, type SettlementProvider } from "./settlement.ts";
+import { mountCasperLive } from "./casper-live.ts";
 import { nextChunk } from "./feed.ts";
 import type { ImpactSnapshot, OpenSessionRequest, TickResponse } from "../../shared/types.ts";
 
@@ -47,26 +48,32 @@ app.post("/sessions", (req, res) => {
   }
 });
 
-// Settle one tick and receive the next chunk. In LIVE mode this route is wrapped by the
-// @x402/express paymentMiddleware (D2); the meter then records the settlement the middleware made.
-app.post("/sessions/:id/next", async (req, res) => {
-  try {
-    const quote = meter.quoteTick(req.params.id);
-    let result;
+// Settle one tick and receive the next chunk: POST /tick?session=<id>.
+// LIVE mode wraps this with @x402/express paymentMiddleware (see mountCasperLive); each tick is a
+// real on-chain CEP-18 settlement. MOCK mode settles synthetically here.
+if (cfg.mode === "live") {
+  mountCasperLive(app, cfg, meter);
+} else {
+  app.post("/tick", async (req, res) => {
+    const sessionId = (req.query.session as string) || "";
     try {
-      result = await provider.settle(quote);
+      const quote = meter.quoteTick(sessionId);
+      let result;
+      try {
+        result = await provider.settle(quote);
+      } catch (err) {
+        meter.halt(sessionId, (err as Error).message || "settlement failed");
+        return res.status(402).json({ error: `tick unpaid — stream halted: ${(err as Error).message}` });
+      }
+      const { session, event } = meter.commitTick(quote, result);
+      const data = nextChunk(session.streamId, session.ticks);
+      const payload: TickResponse = { session, settlement: event, data };
+      res.json(payload);
     } catch (err) {
-      meter.halt(req.params.id, (err as Error).message || "settlement failed");
-      return res.status(402).json({ error: `tick unpaid — stream halted: ${(err as Error).message}` });
+      sendMeterError(res, err);
     }
-    const { session, event } = meter.commitTick(quote, result);
-    const data = nextChunk(session.streamId, session.ticks);
-    const payload: TickResponse = { session, settlement: event, data };
-    res.json(payload);
-  } catch (err) {
-    sendMeterError(res, err);
-  }
-});
+  });
+}
 
 app.get("/sessions/:id", (req, res) => {
   const session = store.getSession(req.params.id);
