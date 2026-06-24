@@ -7,3 +7,5 @@ dist/
 target/
 server/.data/
 keys/
+cloudflared.exe
+*.tunnel.log
