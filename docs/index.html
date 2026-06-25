@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sluice — streaming x402 meter for the agent economy</title>
+    <meta name="description" content="Agents pay per second of use, settled on-chain via Casper x402, and the meter shuts the instant they stop consuming. No subscriptions, no pre-bought credits." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0a0a0a; --panel: #141414; --line: #262626; --ink: #f5f5f5;
+        --dim: #a3a3a3; --teal: #ffd400; --teal2: #ffe27a; --green: #6ee7a8; --purple: #e9d8a6;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body { margin: 0; background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased;
+        font: 16px/1.65 "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+      .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+      a { color: var(--teal2); }
+      .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+      header { border-bottom: 1px solid var(--line); position: sticky; top: 0;
+        background: rgba(7,11,17,.82); backdrop-filter: blur(8px); z-index: 5; }
+      header .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+      .brand { font-weight: 700; font-size: 19px; letter-spacing: -.01em; }
+      .brand b { color: var(--teal); }
+      nav a { color: var(--dim); text-decoration: none; margin-left: 22px; font-size: 14px; }
+      nav a:hover { color: var(--ink); }
+
+      .hero { padding: 90px 0 64px; }
+      .pill { display: inline-block; font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+        color: var(--teal); border: 1px solid #5c4d00; background: #1a1600; padding: 4px 12px; border-radius: 999px; }
+      h1 { font-size: 52px; line-height: 1.05; letter-spacing: -.025em; margin: 20px 0 18px; }
+      h1 .grad { background: linear-gradient(100deg, var(--teal), var(--teal2) 60%, var(--purple));
+        -webkit-background-clip: text; background-clip: text; color: transparent; }
+      .lede { font-size: 20px; color: var(--dim); max-width: 680px; }
+      .cta { margin-top: 32px; display: flex; gap: 14px; flex-wrap: wrap; }
+      .btn { display: inline-block; padding: 12px 22px; border-radius: 10px; font-weight: 600;
+        text-decoration: none; font-size: 15px; }
+      .btn.primary { background: var(--teal); color: #1a1500; }
+      .btn.ghost { border: 1px solid var(--line); color: var(--ink); }
+
+      section { padding: 56px 0; border-top: 1px solid var(--line); }
+      h2 { font-size: 30px; letter-spacing: -.02em; margin: 0 0 8px; }
+      .sub { color: var(--dim); margin: 0 0 32px; }
+
+      .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+      .card h3 { margin: 0 0 8px; font-size: 17px; }
+      .card p { margin: 0; color: var(--dim); font-size: 14.5px; }
+      .card .ic { font-size: 22px; margin-bottom: 10px; }
+
+      .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .compare .card.bad { border-color: #3a2330; }
+      .compare .card.good { border-color: #5c4d00; }
+      .compare ul { margin: 10px 0 0; padding-left: 18px; color: var(--dim); font-size: 14.5px; }
+      .compare li { margin: 6px 0; }
+      .tag { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+      .tag.bad { color: #e2849b; } .tag.good { color: var(--green); }
+
+      pre.flow { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+        padding: 20px; overflow-x: auto; color: var(--teal2); font-size: 13px; line-height: 1.5; }
+
+      .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+      .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+      .stat .n { font-size: 30px; font-weight: 700; color: var(--teal2); }
+      .stat .l { font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; margin-top: 4px; }
+      .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+        margin-right: 7px; box-shadow: 0 0 0 0 rgba(91,227,154,.7); animation: pulse 1.8s infinite; }
+      @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(91,227,154,.6)} 70%{box-shadow:0 0 0 9px rgba(91,227,154,0)} 100%{box-shadow:0 0 0 0 rgba(91,227,154,0)} }
+
+      footer { border-top: 1px solid var(--line); padding: 36px 0; color: var(--dim); font-size: 14px; }
+      footer a { color: var(--dim); }
+      @media (max-width: 720px) { h1 { font-size: 38px; } .grid3, .compare { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <div class="brand">💧 <b>Sluice</b></div>
+        <nav>
+          <a href="#how">How it works</a>
+          <a href="#why">Why it's different</a>
+          <a href="impact.html">Live proof</a>
+          <a href="https://github.com/Risingtell/sluice" id="ghtop">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <section class="hero" style="border:0">
+        <span class="pill">Casper Agentic Buildathon 2026</span>
+        <h1>Agents pay <span class="grad">per second</span>,<br />settled on-chain.</h1>
+        <p class="lede">
+          Sluice is a streaming x402 meter for the agent economy. An agent renting a continuous
+          resource pays only for the seconds it actually consumes — and the stream shuts the
+          instant a tick goes unpaid. No subscriptions. No pre-bought credits. Just a meter.
+        </p>
+        <div class="cta">
+          <a class="btn primary" href="impact.html">See live settlements →</a>
+          <a class="btn ghost" href="#how">How it works</a>
+        </div>
+      </section>
+
+      <section id="why">
+        <h2>The whole x402 wave bills per request. Sluice bills per second.</h2>
+        <p class="sub">Continuous resources don't fit a pay-per-call world. They need a meter.</p>
+        <div class="compare">
+          <div class="card bad">
+            <div class="tag bad">Pre-paid credits / subscriptions</div>
+            <ul>
+              <li>Agent over-buys and eats the waste</li>
+              <li>Or runs dry mid-task and stalls</li>
+              <li>Refunds need a trusted middleman</li>
+              <li>No on-chain record of what was used</li>
+            </ul>
+          </div>
+          <div class="card good">
+            <div class="tag good">Sluice — streaming x402</div>
+            <ul>
+              <li>Pay for the exact seconds consumed</li>
+              <li>Stop consuming → meter stops, instantly</li>
+              <li>Every second is a real on-chain settlement</li>
+              <li>Casper's facilitator pays the gas</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="how">
+        <h2>How it works</h2>
+        <p class="sub">A pull loop on top of per-request x402. Each tick is one on-chain settlement.</p>
+        <pre class="flow mono">Agent (Casper key)
+   │  opens a session, then every tick signs an EIP-712 transfer_with_authorization
+   ▼
+Sluice meter (Express + @x402/express + @make-software/casper-x402)
+   │  bills elapsed seconds × rate · pay the tick → get the next chunk
+   ▼
+Casper x402 Facilitator  →  CEP-18 transfer on casper:casper-test  (facilitator pays gas)
+   ▼
+/impact public proof feed  ·  every tick, with a cspr.live explorer link
+
+   ✋  Skip a tick → the next chunk never comes. The sluice gate shuts.</pre>
+        <div class="grid3" style="margin-top:18px">
+          <div class="card"><div class="ic">⏱️</div><h3>Per-second billing</h3><p>The meter accrues by elapsed time and settles in rapid micro-payments — not a flat per-call fee.</p></div>
+          <div class="card"><div class="ic">🚦</div><h3>Instant cutoff</h3><p>Payment and access are the same event. The moment a tick is unpaid, the stream halts. No trust required.</p></div>
+          <div class="card"><div class="ic">🔗</div><h3>Verifiable</h3><p>Every tick is a real CEP-18 settlement on Casper testnet, linked on a public feed anyone can audit.</p></div>
+        </div>
+      </section>
+
+      <section id="proof">
+        <h2><span class="live-dot"></span>Live proof</h2>
+        <p class="sub">Real settlements from running agents. <a href="impact.html">Open the full feed →</a></p>
+        <div class="stats" id="stats"><div class="stat"><div class="n">…</div><div class="l">loading</div></div></div>
+      </section>
+    </div>
+
+    <footer>
+      <div class="wrap">
+        Sluice · streaming x402 meter for the agent economy · built on
+        <a href="https://www.casper.network/ai">Casper AI Toolkit</a>.
+        <span id="modeline"></span>
+      </div>
+    </footer>
+
+    <script>
+      const cspr = (m) => (Number(BigInt(m)) / 1e9).toLocaleString(undefined, { maximumFractionDigits: 4 });
+      async function refresh() {
+        try {
+          const s = await fetch("./proof.json").then((r) => r.json());
+          const t = s.totals;
+          document.getElementById("stats").innerHTML = [
+            ["settlements", t.settlements.toLocaleString()],
+            ["streamed", cspr(t.totalPaid) + " " + t.asset],
+            ["seconds metered", t.secondsStreamed.toLocaleString()],
+            ["agents", t.uniqueAgents],
+          ].map(([l, n]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+          document.getElementById("modeline").textContent = s.mock ? "· demo running in mock mode" : "· LIVE on " + s.network;
+        } catch (e) {}
+      }
+      refresh(); setInterval(refresh, 2000);
+    </script>
+  </body>
+</html>

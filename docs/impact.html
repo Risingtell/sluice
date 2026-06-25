@@ -104,7 +104,7 @@
       <div class="wrap">
         <div class="brand">💧 <b>Sluice</b></div>
         <nav>
-          <a href="/index.html">Home</a>
+          <a href="index.html">Home</a>
           <a href="https://github.com/Risingtell/sluice">GitHub</a>
           <span id="mode" class="badge"><span class="dot"></span><span id="mode-t">…</span></span>
         </nav>
@@ -167,7 +167,7 @@
 
       async function tick() {
         let s;
-        try { s = await fetch("/impact").then((r) => r.json()); }
+        try { s = await fetch("./proof.json").then((r) => r.json()); }
         catch (e) { return; }
 
         const modeEl = document.getElementById("mode");
