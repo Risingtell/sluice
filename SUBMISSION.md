@@ -4,10 +4,14 @@
 (live feeds, GPU time, streaming inference), settled on-chain via Casper x402, with a self-closing
 "sluice gate" that halts the stream the instant a payment stops.
 
-- **Repo:** <github repo URL>
-- **Live proof feed:** <stable public URL>/impact.html  ·  JSON: <stable public URL>/impact
-- **Demo video:** <youtube/loom URL>
+- **Repo:** https://github.com/Risingtell/sluice
+- **Live proof feed:** https://risingtell.github.io/sluice/impact.html  ·  JSON: https://risingtell.github.io/sluice/proof.json
+- **Demo video:** <youtube/loom URL — to add>
 - **Network:** `casper:casper-test`
+
+> The proof page is a verifiable snapshot of real on-chain settlements (every row links to
+> testnet.cspr.live). The live real-time meter is shown in the demo video and runs locally
+> (`MODE=live npm run server`).
 
 ---
 
