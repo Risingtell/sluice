@@ -55,15 +55,29 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
       Promise.resolve({ asset: assetPackage, amount: "0", extra: tokenExtra } as AssetAmount),
     );
 
-  // Cache quotes per session so the challenge + signed retry settle the same amount.
+  // Cache quotes per session so the challenge + signed retry settle the same amount. A quote is
+  // only valid for one tick exchange; if an agent abandons a challenge (or a settle fails without
+  // its hook firing) the stale quote must NOT be reused for the next tick — that would bill the old
+  // elapsed window and skew the session clock. We expire quotes older than QUOTE_TTL_MS so the next
+  // tick always re-quotes fresh wall-clock time.
+  const QUOTE_TTL_MS = 30_000;
   const pending = new Map<string, TickQuote>();
+
+  const freshPending = (sessionId: string): TickQuote | undefined => {
+    const q = pending.get(sessionId);
+    if (q && Date.now() - q.at > QUOTE_TTL_MS) {
+      pending.delete(sessionId);
+      return undefined;
+    }
+    return q;
+  };
 
   const resourceServer = new x402ResourceServer(facilitatorClient)
     .register(chainID, casperScheme)
     .onAfterSettle(async (sctx: any) => {
       const sessionId = sessionIdFrom(sctx?.transportContext?.request);
       if (!sessionId) return;
-      const quote = pending.get(sessionId);
+      const quote = freshPending(sessionId);
       if (!quote) return;
       pending.delete(sessionId);
       const txHash: string = sctx.result?.transaction ?? "";
@@ -85,7 +99,7 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
   const price = (ctx: any): AssetAmount => {
     const sessionId = sessionIdFrom(ctx);
     if (!sessionId) throw new MeterError(400, "missing ?session=");
-    let quote = pending.get(sessionId);
+    let quote = freshPending(sessionId);
     if (!quote) {
       quote = meter.quoteTick(sessionId);
       pending.set(sessionId, quote);
@@ -112,7 +126,7 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
     const sessionId = sessionIdFrom({ getQueryParam: (n) => req.query[n] as string });
     try {
       if (!sessionId) throw new MeterError(400, "missing ?session=");
-      const quote = pending.get(sessionId) ?? meter.quoteTick(sessionId);
+      const quote = freshPending(sessionId) ?? meter.quoteTick(sessionId);
       const data = nextChunk(quote.session.streamId, quote.session.ticks + 1);
       // settlement is recorded server-side via onAfterSettle; expose the pending tick + data here.
       const payload: Partial<TickResponse> = { session: quote.session, data };

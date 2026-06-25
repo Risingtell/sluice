@@ -4,69 +4,214 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sluice — live settlement proof feed</title>
+    <meta name="description" content="Every row is one real per-second x402 settlement on Casper. Click any tx to verify it on-chain." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <style>
-      :root { color-scheme: dark; }
+      :root {
+        color-scheme: dark;
+        --bg: #070b11; --bg2: #0a0f17; --panel: #0e141d; --panel2: #111925;
+        --line: #1b2430; --line2: #243042; --ink: #e6edf3; --dim: #8b97a7; --faint: #5b6675;
+        --teal: #34d6c8; --teal2: #89dceb; --green: #5be39a; --purple: #c4a7f7; --amber: #f9c66b;
+      }
       * { box-sizing: border-box; }
-      body { margin: 0; font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-        background: #0a0e14; color: #cdd6f4; padding: 32px; }
-      h1 { font-size: 22px; margin: 0 0 4px; color: #89dceb; }
-      .sub { color: #7f849c; margin-bottom: 24px; }
-      .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 12px;
-        background: #f9e2af22; color: #f9e2af; border: 1px solid #f9e2af44; }
-      .badge.live { background: #a6e3a122; color: #a6e3a1; border-color: #a6e3a144; }
-      .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 12px; margin-bottom: 28px; }
-      .stat { background: #11161f; border: 1px solid #1e2530; border-radius: 10px; padding: 14px 16px; }
-      .stat .n { font-size: 26px; color: #89dceb; font-weight: 600; }
-      .stat .l { font-size: 12px; color: #7f849c; text-transform: uppercase; letter-spacing: .04em; }
-      table { width: 100%; border-collapse: collapse; }
-      th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #1e2530; font-size: 13px; }
-      th { color: #7f849c; font-weight: 500; }
-      td.hash a { color: #89b4fa; text-decoration: none; }
-      td.amt { color: #a6e3a1; }
-      .agent { color: #cba6f7; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0; background:
+          radial-gradient(1100px 480px at 80% -8%, #0c2723 0%, rgba(12,39,35,0) 60%),
+          radial-gradient(900px 420px at 0% 0%, #131127 0%, rgba(19,17,39,0) 55%),
+          var(--bg);
+        color: var(--ink);
+        font: 15px/1.6 "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+      a { color: var(--teal2); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+      header { border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5;
+        background: rgba(7,11,17,.78); backdrop-filter: blur(10px); }
+      header .wrap { display: flex; align-items: center; justify-content: space-between; height: 58px; }
+      .brand { font-weight: 700; font-size: 18px; letter-spacing: -.01em; }
+      .brand b { color: var(--teal); }
+      nav a { color: var(--dim); margin-left: 20px; font-size: 14px; }
+      nav a:hover { color: var(--ink); text-decoration: none; }
+
+      .badge { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px; border-radius: 999px;
+        font-size: 12px; font-weight: 600; letter-spacing: .02em;
+        background: #f9c66b18; color: var(--amber); border: 1px solid #f9c66b33; }
+      .badge.live { background: #5be39a14; color: var(--green); border-color: #5be39a3a; }
+      .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+      .badge.live .dot { box-shadow: 0 0 0 0 rgba(91,227,154,.7); animation: pulse 1.8s infinite; }
+      @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(91,227,154,.6)} 70%{box-shadow:0 0 0 7px rgba(91,227,154,0)} 100%{box-shadow:0 0 0 0 rgba(91,227,154,0)} }
+
+      .head { padding: 40px 0 26px; }
+      .eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--teal); font-weight: 600; }
+      h1 { font-size: 32px; line-height: 1.1; letter-spacing: -.025em; margin: 10px 0 10px; }
+      h1 .grad { background: linear-gradient(100deg, var(--teal), var(--teal2) 55%, var(--purple));
+        -webkit-background-clip: text; background-clip: text; color: transparent; }
+      .lede { color: var(--dim); max-width: 620px; margin: 0; }
+      .metarow { display: flex; align-items: center; gap: 14px; margin-top: 16px; flex-wrap: wrap; font-size: 13px; color: var(--faint); }
+
+      .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); gap: 14px; margin: 8px 0 30px; }
+      .stat { position: relative; background: linear-gradient(180deg, var(--panel2), var(--panel));
+        border: 1px solid var(--line); border-radius: 14px; padding: 18px 18px 16px; overflow: hidden; }
+      .stat::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 2px;
+        background: linear-gradient(90deg, var(--teal), transparent 70%); opacity: .8; }
+      .stat .n { font-size: 28px; font-weight: 700; letter-spacing: -.02em; color: var(--ink); font-family: "JetBrains Mono", monospace; }
+      .stat .n.accent { color: var(--teal2); }
+      .stat .l { font-size: 11.5px; color: var(--dim); text-transform: uppercase; letter-spacing: .05em; margin-top: 5px; }
+      .stat .n.flash { animation: flash .9s ease; }
+      @keyframes flash { 0%{ color: var(--green); text-shadow: 0 0 18px rgba(91,227,154,.5);} 100%{} }
+
+      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+      .panel-head { display: flex; align-items: center; justify-content: space-between;
+        padding: 16px 20px; border-bottom: 1px solid var(--line); }
+      .panel-head h2 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: -.01em; }
+      .panel-head .hint { font-size: 12.5px; color: var(--faint); }
+
+      .tbl-scroll { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; min-width: 720px; }
+      thead th { text-align: left; padding: 11px 20px; font-size: 11px; text-transform: uppercase;
+        letter-spacing: .06em; color: var(--faint); font-weight: 600; background: var(--bg2); position: sticky; top: 0; }
+      tbody td { padding: 12px 20px; border-top: 1px solid var(--line); font-size: 13.5px; vertical-align: middle; }
+      tbody tr { transition: background .15s; }
+      tbody tr:hover { background: #ffffff05; }
+      tr.new td { animation: rowin 1.1s ease; }
+      @keyframes rowin { 0%{ background: #5be39a16; } 100%{ background: transparent; } }
+      .t-time { color: var(--dim); font-family: "JetBrains Mono", monospace; font-size: 12.5px; white-space: nowrap; }
+      .t-agent { font-family: "JetBrains Mono", monospace; color: var(--purple); }
+      .pill { display: inline-block; padding: 2px 9px; border-radius: 6px; font-size: 12px; font-weight: 500;
+        border: 1px solid var(--line2); }
+      .pill.btc-usd { color: var(--amber); border-color: #f9c66b33; background: #f9c66b12; }
+      .pill.eth-usd { color: var(--teal2); border-color: #89dceb33; background: #89dceb12; }
+      .pill.gpu-telemetry { color: var(--purple); border-color: #c4a7f733; background: #c4a7f712; }
+      .t-sec { font-family: "JetBrains Mono", monospace; color: var(--dim); }
+      .t-amt { font-family: "JetBrains Mono", monospace; color: var(--green); font-weight: 500; white-space: nowrap; }
+      .t-tx a { font-family: "JetBrains Mono", monospace; color: var(--teal2); font-size: 12.5px; }
+      .t-tx .ext { color: var(--faint); font-size: 11px; margin-left: 5px; }
+      .empty { padding: 44px 20px; text-align: center; color: var(--faint); }
+
+      footer { color: var(--faint); font-size: 13px; padding: 28px 0 48px; }
+      footer a { color: var(--dim); }
+      @media (max-width: 640px) { h1 { font-size: 26px; } .head { padding: 28px 0 18px; } }
     </style>
   </head>
   <body>
-    <h1>💧 Sluice — live settlement proof feed</h1>
-    <div class="sub">
-      Per-second streaming payments settled on Casper x402. Every row is one on-chain tick.
-      <span id="mode" class="badge">…</span>
+    <header>
+      <div class="wrap">
+        <div class="brand">💧 <b>Sluice</b></div>
+        <nav>
+          <a href="/index.html">Home</a>
+          <a href="https://github.com/Risingtell/sluice">GitHub</a>
+          <span id="mode" class="badge"><span class="dot"></span><span id="mode-t">…</span></span>
+        </nav>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <div class="head">
+        <div class="eyebrow">Live proof feed</div>
+        <h1>Every row is one real <span class="grad">per-second settlement</span></h1>
+        <p class="lede">
+          Autonomous agents paying by the second for a continuous stream — each tick a real CEP-18
+          <span class="mono" style="color:var(--dim)">transfer_with_authorization</span> on Casper.
+          Click any transaction to verify it on-chain.
+        </p>
+        <div class="metarow">
+          <span id="netline">network —</span>
+          <span>·</span>
+          <span>updated <span id="updated" class="mono">—</span></span>
+          <span>·</span>
+          <span>explorer <a href="https://testnet.cspr.live" target="_blank">testnet.cspr.live</a></span>
+        </div>
+      </div>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Settlement stream</h2>
+          <span class="hint">latest 50 · auto-refreshing</span>
+        </div>
+        <div class="tbl-scroll">
+          <table>
+            <thead>
+              <tr><th>Time</th><th>Agent</th><th>Stream</th><th>Seconds</th><th>Amount</th><th>Transaction</th></tr>
+            </thead>
+            <tbody id="rows">
+              <tr><td colspan="6" class="empty">connecting to the proof feed…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <footer>
+        Each settlement is independently verifiable on the Casper block explorer — Sluice records the
+        real on-chain tx hash for every tick. Built for the Casper Agentic Buildathon 2026.
+      </footer>
     </div>
-    <div class="stats" id="stats"></div>
-    <table>
-      <thead>
-        <tr><th>time</th><th>agent</th><th>stream</th><th>sec</th><th>amount</th><th>tx</th></tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
+
     <script>
-      const cspr = (m) => (Number(BigInt(m)) / 1e9).toFixed(6);
-      const fmtTime = (t) => new Date(t).toLocaleTimeString();
+      const cspr = (m) => (Number(BigInt(m)) / 1e9).toLocaleString(undefined, { maximumFractionDigits: 6 });
+      const shortAgent = (a) => (a && a.length > 14) ? a.slice(0, 6) + "…" + a.slice(-4) : a;
+      const fmtTime = (t) => new Date(t).toLocaleTimeString([], { hour12: false });
+
+      let lastSettlements = null;
+      let seenTx = new Set();
+      let firstPaint = true;
+
+      function streamLabel(id) { return ({ "btc-usd": "BTC/USD", "eth-usd": "ETH/USD", "gpu-telemetry": "GPU telemetry" })[id] || id; }
+
       async function tick() {
-        try {
-          const s = await fetch("/impact").then((r) => r.json());
-          const mode = document.getElementById("mode");
-          mode.textContent = s.mock ? "MOCK MODE" : "LIVE · " + s.network;
-          mode.className = "badge" + (s.mock ? "" : " live");
-          const t = s.totals;
-          document.getElementById("stats").innerHTML = [
-            ["settlements", t.settlements.toLocaleString()],
-            ["total paid", cspr(t.totalPaid) + " " + t.asset],
-            ["seconds streamed", t.secondsStreamed.toLocaleString()],
-            ["active sessions", t.activeSessions],
-            ["unique agents", t.uniqueAgents],
-          ].map(([l, n]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
-          document.getElementById("rows").innerHTML = s.recent.map((e) => `
-            <tr>
-              <td>${fmtTime(e.settledAt)}</td>
-              <td class="agent">${e.agent}</td>
-              <td>${e.streamId}</td>
-              <td>${e.seconds.toFixed(1)}</td>
-              <td class="amt">${cspr(e.amount)} ${e.asset}</td>
-              <td class="hash">${e.explorerUrl ? `<a href="${e.explorerUrl}" target="_blank">${e.txHash.slice(0,16)}…</a>` : e.txHash.slice(0,16) + "…"}</td>
-            </tr>`).join("");
-        } catch (err) { /* server starting */ }
+        let s;
+        try { s = await fetch("/impact").then((r) => r.json()); }
+        catch (e) { return; }
+
+        const modeEl = document.getElementById("mode");
+        const isLive = !s.mock;
+        document.getElementById("mode-t").textContent = isLive ? "LIVE" : "MOCK";
+        modeEl.className = "badge" + (isLive ? " live" : "");
+        document.getElementById("netline").textContent = "network " + (s.network || "—");
+        document.getElementById("updated").textContent = new Date().toLocaleTimeString([], { hour12: false });
+
+        const t = s.totals;
+        const cells = [
+          ["settlements", Number(t.settlements).toLocaleString(), true],
+          ["total paid", cspr(t.totalPaid) + " " + t.asset, false],
+          ["seconds streamed", Number(t.secondsStreamed).toLocaleString(), false],
+          ["active sessions", t.activeSessions, false],
+          ["unique agents", t.uniqueAgents, false],
+        ];
+        const bump = lastSettlements !== null && t.settlements !== lastSettlements;
+        document.getElementById("stats").innerHTML = cells.map(([l, n, accent], i) =>
+          `<div class="stat"><div class="n ${accent ? "accent" : ""} ${i === 0 && bump ? "flash" : ""}">${n}</div><div class="l">${l}</div></div>`
+        ).join("");
+        lastSettlements = t.settlements;
+
+        const rows = (s.recent || []);
+        if (!rows.length) {
+          document.getElementById("rows").innerHTML = `<tr><td colspan="6" class="empty">No settlements yet — run an agent to start the meter.</td></tr>`;
+          return;
+        }
+        document.getElementById("rows").innerHTML = rows.map((e) => {
+          const isNew = !firstPaint && !seenTx.has(e.txHash);
+          const tx = e.explorerUrl
+            ? `<a href="${e.explorerUrl}" target="_blank">${e.txHash.slice(0, 18)}…</a><span class="ext">↗</span>`
+            : `<span class="mono" style="color:var(--faint)">${(e.txHash || "").slice(0, 18)}… (mock)</span>`;
+          return `<tr class="${isNew ? "new" : ""}">
+            <td class="t-time">${fmtTime(e.settledAt)}</td>
+            <td class="t-agent">${shortAgent(e.agent)}</td>
+            <td><span class="pill ${e.streamId}">${streamLabel(e.streamId)}</span></td>
+            <td class="t-sec">${Number(e.seconds).toFixed(1)}s</td>
+            <td class="t-amt">${cspr(e.amount)} ${e.asset}</td>
+            <td class="t-tx">${tx}</td>
+          </tr>`;
+        }).join("");
+        seenTx = new Set(rows.map((e) => e.txHash));
+        firstPaint = false;
       }
       tick();
       setInterval(tick, 1000);
