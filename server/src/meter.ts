@@ -92,7 +92,8 @@ export class StreamingMeter {
       sessionId: session.id,
       streamId: session.streamId,
       agent: session.agent,
-      payTo: this.cfg.payTo,
+      payTo: quote.stream.payTo ?? this.cfg.payTo,
+      provider: quote.stream.provider,
       amount: quote.amount,
       asset: quote.stream.asset,
       seconds: quote.seconds,
@@ -110,6 +111,13 @@ export class StreamingMeter {
     this.store.putSession(session);
 
     return { session, event };
+  }
+
+  /** The stream a session is consuming (used to resolve the provider payee per tick). */
+  streamOf(sessionId: string | undefined): StreamSpec | undefined {
+    if (!sessionId) return undefined;
+    const session = this.store.getSession(sessionId);
+    return session ? this.store.streams.get(session.streamId) : undefined;
   }
 
   halt(sessionId: string, reason: string): void {

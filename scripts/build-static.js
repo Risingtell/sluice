@@ -23,10 +23,12 @@ const events = raw.events ?? [];
 let totalPaid = 0n;
 let secondsStreamed = 0;
 const agents = new Set();
+const providers = new Set();
 for (const e of events) {
   totalPaid += BigInt(e.amount || "0");
   secondsStreamed += e.seconds || 0;
   agents.add(e.agent);
+  providers.add(e.payTo);
 }
 const snapshot = {
   network: NETWORK,
@@ -39,6 +41,7 @@ const snapshot = {
     asset: TOTALS_ASSET,
     activeSessions: 0,
     uniqueAgents: agents.size,
+    uniqueProviders: providers.size,
     secondsStreamed: Math.round(secondsStreamed),
   },
   recent: events.slice(-50).reverse(),

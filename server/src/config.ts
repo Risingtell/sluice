@@ -38,7 +38,12 @@ export function loadConfig(): ServerConfig {
   };
 }
 
-/** The catalogue of metered streams Sluice offers. Rates are motes/second (1 CSPR = 1e9 motes). */
+/**
+ * The catalogue of metered streams Sluice offers. Rates are motes/second (1 CSPR = 1e9 motes).
+ * Each stream is supplied by a DISTINCT provider whose `payTo` is that provider's own Casper
+ * account — so settlements flow to independent on-chain parties, not one shared treasury. That is
+ * what makes the /impact feed a real multi-party economy rather than one wallet paying itself.
+ */
 export const STREAMS: StreamSpec[] = [
   {
     id: "btc-usd",
@@ -46,6 +51,8 @@ export const STREAMS: StreamSpec[] = [
     description: "Per-second BTC/USD spot feed for trading agents.",
     ratePerSecond: "1000000", // 0.001 CSPR/s
     asset: "X402",
+    provider: "Lumen Markets",
+    payTo: process.env.PAYEE_BTC || process.env.PAYEE_ADDRESS || "00b76372880f98f0ddaf31257e32fb5b1b787a7bd9d20642dfac63b32ff7367a12",
   },
   {
     id: "eth-usd",
@@ -53,6 +60,8 @@ export const STREAMS: StreamSpec[] = [
     description: "Per-second ETH/USD spot feed for trading agents.",
     ratePerSecond: "800000", // 0.0008 CSPR/s
     asset: "X402",
+    provider: "Helios Feeds",
+    payTo: process.env.PAYEE_ETH || "0044f9e67c672341bcbcf5f444aa1541072d442526f644196d73eac124c737ad67",
   },
   {
     id: "gpu-telemetry",
@@ -60,5 +69,7 @@ export const STREAMS: StreamSpec[] = [
     description: "Per-second telemetry for a rented A100 — pay only while the job runs.",
     ratePerSecond: "2500000", // 0.0025 CSPR/s
     asset: "X402",
+    provider: "NimbusGPU",
+    payTo: process.env.PAYEE_GPU || "00fc58cef2cb0adf3ade43868254aae8cfc4601f169e60c7ca6bf3a0f4aa85d491",
   },
 ];

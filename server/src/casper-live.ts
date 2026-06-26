@@ -95,6 +95,10 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
       }
     });
 
+  // DynamicPayTo: route each tick to the payee of the stream the session is consuming, so each
+  // provider is paid at its own on-chain account (a real multi-party economy, not one treasury).
+  const payTo = (ctx: any): string => meter.streamOf(sessionIdFrom(ctx))?.payTo ?? cfg.payTo;
+
   // DynamicPrice: quote the tick (stable across challenge + retry).
   const price = (ctx: any): AssetAmount => {
     const sessionId = sessionIdFrom(ctx);
@@ -111,7 +115,7 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
     paymentMiddleware(
       {
         "POST /tick": {
-          accepts: [{ scheme: "exact", price, network: chainID, payTo: cfg.payTo }],
+          accepts: [{ scheme: "exact", price, network: chainID, payTo }],
           description: "One metered tick of a Sluice stream",
           mimeType: "application/json",
         },

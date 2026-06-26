@@ -101,6 +101,7 @@ app.get("/impact", (_req, res) => {
       asset: cfg.asset,
       activeSessions: store.activeSessionCount(),
       uniqueAgents: t.uniqueAgents,
+      uniqueProviders: t.uniqueProviders,
       secondsStreamed: Math.round(t.secondsStreamed),
     },
     recent: store.recentEvents(50),

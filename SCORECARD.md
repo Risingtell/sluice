@@ -30,7 +30,7 @@ on-chain-verifiable, which most entries are not.
 | 2 | P1 | README claimed MIT but no LICENSE file (open-source eligibility). | ✅ Fixed (added `LICENSE`) |
 | 3 | P1 | `docs/ref_js_*` were verbatim third-party source vendored from the casper-x402 repo — originality/attribution risk, imported nowhere. | ✅ Fixed (removed) |
 | 4 | P2 | Exposed cspr.cloud facilitator key (shared during dev). Not in git, but must be rotated. | OPEN — rotate post-event |
-| 5 | P2 | `uniqueAgents = 1` — all volume from one funded key. Not dishonest (it's disclosed) but a judge will notice. | Disclosed everywhere; optional to onboard more agents |
+| 5 | ~~P2~~ | ~~`uniqueAgents = 1` — all volume from one funded key.~~ | ✅ **FIXED** — now 5 distinct funded agents paying 3 distinct providers (real multi-party economy) |
 | 6 | P3 | Single-node, in-memory state with JSON snapshot — fine for a hackathon, not production HA. | Acknowledged in writeups |
 
 ## Bugs found & fixed

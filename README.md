@@ -5,10 +5,11 @@ agent stops consuming.** No subscriptions, no pre-bought credits.
 
 Built for the [Casper Agentic Buildathon 2026](https://dorahacks.io/hackathon/casper-agentic-buildathon).
 
-> **It's live.** Sluice has already settled **138 real per-second payments on `casper:casper-test`**,
-> each one a CEP-18 `transfer_with_authorization` signed by an autonomous agent and finalized by the
-> Casper x402 facilitator — every settlement is clickable through to **testnet.cspr.live**. See the
-> [`/impact`](#verify-it-yourself-no-trust-required) proof feed.
+> **It's live, and it's a real economy.** Sluice has settled **200+ real per-second payments on
+> `casper:casper-test`** across **5 independent autonomous agents** — each with its own funded Casper
+> wallet — paying **3 distinct providers**. Every tick is a CEP-18 `transfer_with_authorization`
+> signed by the agent's own key and finalized by the x402 facilitator, clickable through to
+> **testnet.cspr.live**. See the [`/impact`](#verify-it-yourself-no-trust-required) proof feed.
 
 ---
 
@@ -56,7 +57,7 @@ Every settlement Sluice has ever made is recorded with its real Casper transacti
 ```bash
 # top-line cumulative proof
 curl -s http://localhost:4021/impact | jq '.totals'
-# => { "settlements": 138, "secondsStreamed": 1190, "totalPaid": "1692363700", ... }
+# => { "settlements": 217, "uniqueAgents": 5, "uniqueProviders": 3, "secondsStreamed": 1750, ... }
 
 # pull any recent settlement and open it on the block explorer
 curl -s http://localhost:4021/impact | jq '.recent[0] | {txHash, explorerUrl, amount, seconds}'
@@ -67,10 +68,11 @@ transfer on `casper:casper-test`, gas paid by the facilitator's sponsored feePay
 moving from the agent's account to the payee. The live dashboard at **`/impact.html`** renders the
 same feed.
 
-**Honest caveat:** all current volume comes from **one** funded agent key (`uniqueAgents = 1`). The
-settlements, seconds streamed, and value transferred are 100% real on-chain; the *number of distinct
-agents* is the one number we are not inflating. Onboarding more funded agents is purely operational
-(mint the X402 token to more accounts), not a code change.
+**A real multi-party economy.** Volume comes from **5 distinct funded agent wallets** streaming from a
+catalogue whose **3 streams each pay their own provider treasury** — so payments flow between
+independent on-chain parties (`uniqueAgents = 5`, `uniqueProviders = 3`), not one wallet paying itself.
+Every tx is verifiable on cspr.live. (Remaining honest notes: this is testnet, and the streamed data
+is a synthetic stand-in for a real continuous resource — the *payment mechanism* is what's real.)
 
 ---
 

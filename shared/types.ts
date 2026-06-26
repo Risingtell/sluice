@@ -14,6 +14,10 @@ export interface StreamSpec {
   ratePerSecond: string;
   /** Token symbol settlements are denominated in (e.g. WCSPR). */
   asset: string;
+  /** Display name of the provider that supplies this stream. */
+  provider?: string;
+  /** Casper address (00 + account-hash) the provider receives payment at. */
+  payTo?: string;
 }
 
 /** A live consumption session: one agent streaming one resource. */
@@ -41,6 +45,8 @@ export interface SettlementEvent {
   streamId: string;
   agent: string;
   payTo: string;
+  /** Display name of the provider that received this payment. */
+  provider?: string;
   /** Motes moved in this single tick. */
   amount: string;
   asset: string;
@@ -76,6 +82,7 @@ export interface ImpactSnapshot {
     asset: string;
     activeSessions: number;
     uniqueAgents: number;
+    uniqueProviders: number;
     secondsStreamed: number;
   };
   recent: SettlementEvent[];

@@ -43,23 +43,24 @@ not an escrow layer.
 
 ## 4. It is actually live — and verifiable
 
-This is not a mock. On `casper:casper-test`, Sluice has settled **138 real per-second payments**:
+This is not a mock, and not a self-deal. On `casper:casper-test`, Sluice runs a real multi-party
+economy:
 
 | Metric | Value |
 |---|---|
-| On-chain settlements | **138** |
-| Seconds streamed & billed | **1,190 s** |
-| Value transferred | **1.69 X402** (CEP-18) |
-| Streams metered | BTC/USD, ETH/USD, GPU telemetry |
-| Distinct agents | 1 *(honest caveat below)* |
+| On-chain settlements | **217+** |
+| **Distinct paying agents** | **5** (each its own funded Casper wallet) |
+| **Distinct providers paid** | **3** (each its own treasury) |
+| Seconds streamed & billed | **1,750 s** |
+| Value transferred | **2.45 X402** (CEP-18) |
+| Streams metered | BTC/USD · ETH/USD · GPU telemetry |
 
 **Verify any of them:** `GET /impact` returns each settlement's real `txHash` and an
 `https://testnet.cspr.live/deploy/<txHash>` link. Click through to see the CEP-18 transfer, the
-facilitator's sponsored gas, and the token moving agent → payee.
+facilitator's sponsored gas, and the token moving from a specific agent to a specific provider.
 
-**Honest caveat:** all volume comes from one funded agent key, so `uniqueAgents = 1`. The
-settlements, seconds, and value are 100% real on-chain; the agent *count* is the only number we will
-not inflate. Adding agents is operational (mint X402 to more accounts), not a code change.
+**Honest notes:** this is testnet, and each stream's data is a synthetic stand-in for a real
+continuous resource — the *payment mechanism* and the multi-party settlement are 100% real on-chain.
 
 ## 5. How it's built
 

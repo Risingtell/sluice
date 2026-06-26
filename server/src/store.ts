@@ -74,15 +74,17 @@ export class Store {
   }
 
   /** Cumulative totals across all settlements ever recorded. */
-  totals(): { settlements: number; totalPaid: bigint; uniqueAgents: number; secondsStreamed: number } {
+  totals(): { settlements: number; totalPaid: bigint; uniqueAgents: number; uniqueProviders: number; secondsStreamed: number } {
     let totalPaid = 0n;
     let secondsStreamed = 0;
     const agents = new Set<string>();
+    const providers = new Set<string>();
     for (const e of this.events) {
       totalPaid += BigInt(e.amount);
       secondsStreamed += e.seconds;
       agents.add(e.agent);
+      providers.add(e.payTo);
     }
-    return { settlements: this.events.length, totalPaid, uniqueAgents: agents.size, secondsStreamed };
+    return { settlements: this.events.length, totalPaid, uniqueAgents: agents.size, uniqueProviders: providers.size, secondsStreamed };
   }
 }

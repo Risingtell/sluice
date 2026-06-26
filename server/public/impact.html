@@ -88,6 +88,7 @@
       .pill.btc-usd { color: #ffd400; border-color: #ffd40033; background: #ffd40012; }
       .pill.eth-usd { color: #e8e8e8; border-color: #e8e8e833; background: #e8e8e810; }
       .pill.gpu-telemetry { color: #f5b301; border-color: #f5b30133; background: #f5b30112; }
+      .t-prov { color: var(--teal2); font-weight: 500; }
       .t-sec { font-family: "JetBrains Mono", monospace; color: var(--dim); }
       .t-amt { font-family: "JetBrains Mono", monospace; color: var(--green); font-weight: 500; white-space: nowrap; }
       .t-tx a { font-family: "JetBrains Mono", monospace; color: var(--teal2); font-size: 12.5px; }
@@ -139,10 +140,10 @@
         <div class="tbl-scroll">
           <table>
             <thead>
-              <tr><th>Time</th><th>Agent</th><th>Stream</th><th>Seconds</th><th>Amount</th><th>Transaction</th></tr>
+              <tr><th>Time</th><th>Agent</th><th>Stream</th><th>Provider</th><th>Seconds</th><th>Amount</th><th>Transaction</th></tr>
             </thead>
             <tbody id="rows">
-              <tr><td colspan="6" class="empty">connecting to the proof feed…</td></tr>
+              <tr><td colspan="7" class="empty">connecting to the proof feed…</td></tr>
             </tbody>
           </table>
         </div>
@@ -181,10 +182,11 @@
         const t = s.totals;
         const cells = [
           ["settlements", Number(t.settlements).toLocaleString(), true],
+          ["agents paying", t.uniqueAgents, true],
+          ["providers paid", t.uniqueProviders ?? 1, true],
           ["total paid", cspr(t.totalPaid) + " " + t.asset, false],
           ["seconds streamed", Number(t.secondsStreamed).toLocaleString(), false],
           ["active sessions", t.activeSessions, false],
-          ["unique agents", t.uniqueAgents, false],
         ];
         const bump = lastSettlements !== null && t.settlements !== lastSettlements;
         document.getElementById("stats").innerHTML = cells.map(([l, n, accent], i) =>
@@ -194,7 +196,7 @@
 
         const rows = (s.recent || []);
         if (!rows.length) {
-          document.getElementById("rows").innerHTML = `<tr><td colspan="6" class="empty">No settlements yet — run an agent to start the meter.</td></tr>`;
+          document.getElementById("rows").innerHTML = `<tr><td colspan="7" class="empty">No settlements yet — run an agent to start the meter.</td></tr>`;
           return;
         }
         document.getElementById("rows").innerHTML = rows.map((e) => {
@@ -206,6 +208,7 @@
             <td class="t-time">${fmtTime(e.settledAt)}</td>
             <td class="t-agent">${shortAgent(e.agent)}</td>
             <td><span class="pill ${e.streamId}">${streamLabel(e.streamId)}</span></td>
+            <td class="t-prov" title="${e.payTo || ""}">${e.provider || "—"}</td>
             <td class="t-sec">${Number(e.seconds).toFixed(1)}s</td>
             <td class="t-amt">${cspr(e.amount)} ${e.asset}</td>
             <td class="t-tx">${tx}</td>

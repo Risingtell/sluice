@@ -173,9 +173,10 @@ Casper x402 Facilitator  →  CEP-18 transfer on casper:casper-test  (facilitato
           const t = s.totals;
           document.getElementById("stats").innerHTML = [
             ["settlements", t.settlements.toLocaleString()],
+            ["agents", t.uniqueAgents],
+            ["providers", t.uniqueProviders ?? 1],
             ["streamed", cspr(t.totalPaid) + " " + t.asset],
             ["seconds metered", t.secondsStreamed.toLocaleString()],
-            ["agents", t.uniqueAgents],
           ].map(([l, n]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
           document.getElementById("modeline").textContent = s.mock ? "· demo running in mock mode" : "· LIVE on " + s.network;
         } catch (e) {}
