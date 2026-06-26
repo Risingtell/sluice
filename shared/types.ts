@@ -36,6 +36,12 @@ export interface Session {
   ticks: number;
   lastSettledAt: number;
   haltedReason?: string;
+  /** The agent's policy + goal for this session (its autonomy). */
+  policy?: string;
+  objective?: string;
+  /** Why the agent closed the gate (objective met / not worth it / budget / cap). */
+  closedReason?: string;
+  closedAt?: number;
 }
 
 /** One on-chain (or simulated) settlement event — the unit of the /impact proof feed. */
@@ -64,6 +70,20 @@ export interface SettlementEvent {
 export interface OpenSessionRequest {
   streamId: string;
   agent: string;
+  policy?: string;
+  objective?: string;
+}
+
+/** A recorded autonomous decision: an agent that closed its own stream, and why. */
+export interface AgentDecision {
+  agent: string;
+  streamId: string;
+  provider?: string;
+  objective?: string;
+  closedReason: string;
+  ticks: number;
+  totalPaid: string;
+  at: number;
 }
 
 export interface TickResponse {
@@ -86,4 +106,6 @@ export interface ImpactSnapshot {
     secondsStreamed: number;
   };
   recent: SettlementEvent[];
+  /** Recent autonomous gate-closures — the agentic decisions behind the payments. */
+  decisions: AgentDecision[];
 }

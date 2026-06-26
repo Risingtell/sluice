@@ -45,6 +45,20 @@ const snapshot = {
     secondsStreamed: Math.round(secondsStreamed),
   },
   recent: events.slice(-50).reverse(),
+  decisions: (raw.sessions ?? [])
+    .filter((s) => s.closedReason && !/^tick unpaid|^stream interrupted|^stream halted/.test(s.closedReason))
+    .sort((a, b) => (b.closedAt ?? 0) - (a.closedAt ?? 0))
+    .slice(0, 8)
+    .map((s) => ({
+      agent: s.agent,
+      streamId: s.streamId,
+      provider: { "btc-usd": "Lumen Markets", "eth-usd": "Helios Feeds", "gpu-telemetry": "NimbusGPU" }[s.streamId],
+      objective: s.objective,
+      closedReason: s.closedReason,
+      ticks: s.ticks,
+      totalPaid: s.totalPaid,
+      at: s.closedAt ?? s.startedAt,
+    })),
 };
 writeFileSync(`${OUT}/proof.json`, JSON.stringify(snapshot));
 console.log(`proof.json: ${snapshot.totals.settlements} settlements, ${snapshot.totals.secondsStreamed}s, ${agents.size} agent(s)`);

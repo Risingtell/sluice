@@ -88,6 +88,14 @@
       .pill.btc-usd { color: #ffd400; border-color: #ffd40033; background: #ffd40012; }
       .pill.eth-usd { color: #e8e8e8; border-color: #e8e8e833; background: #e8e8e810; }
       .pill.gpu-telemetry { color: #f5b301; border-color: #f5b30133; background: #f5b30112; }
+      .decisions { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1px; background: var(--line); }
+      .dec { background: var(--panel); padding: 14px 18px; }
+      .dec-top { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; flex-wrap: wrap; }
+      .dec-prov { color: var(--teal2); font-size: 12.5px; font-weight: 500; }
+      .dec-obj { font-size: 12.5px; color: var(--faint); margin-bottom: 4px; }
+      .dec-reason { font-size: 13.5px; color: var(--ink); line-height: 1.4; }
+      .dec-reason b { color: var(--green); font-weight: 600; }
+      .dec-meta { font-size: 11.5px; color: var(--faint); margin-top: 6px; font-family: "JetBrains Mono", monospace; }
       .t-prov { color: var(--teal2); font-weight: 500; }
       .t-sec { font-family: "JetBrains Mono", monospace; color: var(--dim); }
       .t-amt { font-family: "JetBrains Mono", monospace; color: var(--green); font-weight: 500; white-space: nowrap; }
@@ -131,6 +139,14 @@
       </div>
 
       <div class="stats" id="stats"></div>
+
+      <div class="panel" style="margin-bottom: 18px">
+        <div class="panel-head">
+          <h2>🧠 Autonomous agent decisions</h2>
+          <span class="hint">each agent closes its own gate — objective met, not worth it, or budget</span>
+        </div>
+        <div id="decisions" class="decisions"><div class="empty">waiting for decisions…</div></div>
+      </div>
 
       <div class="panel">
         <div class="panel-head">
@@ -193,6 +209,21 @@
           `<div class="stat"><div class="n ${accent ? "accent" : ""} ${i === 0 && bump ? "flash" : ""}">${n}</div><div class="l">${l}</div></div>`
         ).join("");
         lastSettlements = t.settlements;
+
+        // Autonomous decisions — agents closing their own gate, and why.
+        const decs = s.decisions || [];
+        const decEl = document.getElementById("decisions");
+        if (decEl) decEl.innerHTML = decs.length ? decs.map((d) => {
+          const good = /met|complete|signal:/i.test(d.closedReason || "");
+          return `<div class="dec">
+            <div class="dec-top"><span class="t-agent">${shortAgent(d.agent)}</span>
+              <span class="pill ${d.streamId}">${streamLabel(d.streamId)}</span>
+              <span class="dec-prov">${d.provider || ""}</span></div>
+            <div class="dec-obj">objective: ${d.objective || "—"}</div>
+            <div class="dec-reason">⟶ ${good ? "<b>" + d.closedReason + "</b>" : d.closedReason}</div>
+            <div class="dec-meta">${d.ticks} ticks · ${cspr(d.totalPaid)} ${t.asset}</div>
+          </div>`;
+        }).join("") : '<div class="empty">no autonomous closes yet</div>';
 
         const rows = (s.recent || []);
         if (!rows.length) {

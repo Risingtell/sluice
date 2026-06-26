@@ -10,6 +10,7 @@
  */
 import { config as loadEnv } from "dotenv";
 import type { Session, SettlementEvent, StreamSpec } from "../../shared/types.ts";
+import { policyForStream } from "./policy.ts";
 
 loadEnv();
 
@@ -17,7 +18,10 @@ const MODE = process.env.MODE === "live" ? "live" : "mock";
 const SERVER_URL = process.env.SERVER_URL || "http://localhost:4021";
 const STREAM_ID = process.env.AGENT_STREAM || "btc-usd";
 const TICK_MS = parseInt(process.env.AGENT_TICK_MS || "1000", 10);
+// Hard safety cap on ticks; the policy normally closes the gate well before this.
 const MAX_TICKS = parseInt(process.env.AGENT_MAX_TICKS || "20", 10);
+// Spend ceiling for the whole session — the agent will not authorize a tick that breaches it.
+const BUDGET_X402 = parseFloat(process.env.AGENT_BUDGET_X402 || "0.08");
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const fmt = (units: string) => (Number(BigInt(units)) / 1e9).toFixed(6);
@@ -74,17 +78,29 @@ async function main(): Promise<void> {
   const { streams } = await fetch(`${SERVER_URL}/streams`).then((r) => r.json() as Promise<{ streams: StreamSpec[] }>);
   const spec = streams.find((s) => s.id === STREAM_ID);
   if (!spec) throw new Error(`stream ${STREAM_ID} not offered`);
-  console.log(`   rate: ${fmt(spec.ratePerSecond)} ${spec.asset}/s\n`);
 
-  const { session } = await jsonPost<{ session: Session }>("/sessions", { streamId: STREAM_ID, agent: agentId });
+  const { policy } = policyForStream(STREAM_ID, BUDGET_X402);
+  const budgetMotes = BigInt(Math.round(BUDGET_X402 * 1e9));
+  console.log(`   rate: ${fmt(spec.ratePerSecond)} ${spec.asset}/s · policy "${policy.name}" · budget ${BUDGET_X402} ${spec.asset}`);
+  console.log(`   objective: ${policy.objective}\n`);
+
+  const { session } = await jsonPost<{ session: Session }>("/sessions", {
+    streamId: STREAM_ID,
+    agent: agentId,
+    policy: policy.name,
+    objective: policy.objective,
+  });
   console.log(`   session ${session.id} opened\n`);
 
   const tickUrl = `${SERVER_URL}/tick?session=${session.id}`;
   let tick = 0;
   let totalPaid = 0n;
+  let prevPaid = 0n;
+  let closeReason = `reached ${MAX_TICKS}-tick safety cap`;
   while (tick < MAX_TICKS) {
     await sleep(TICK_MS);
     tick++;
+    let chunk: unknown;
     try {
       if (live && liveBits) {
         const res = await liveBits.tickFetch(tickUrl, { method: "POST" });
@@ -92,31 +108,47 @@ async function main(): Promise<void> {
         const body = (await res.json()) as { session: Session; data: unknown };
         const txHash = liveBits.readTx(res);
         totalPaid = BigInt(body.session.totalPaid);
+        chunk = body.data;
         console.log(
           `   ⛽ tick ${String(tick).padStart(2)} | total ${fmt(body.session.totalPaid)} ${spec.asset} | ` +
             `${txHash ? "tx " + txHash.slice(0, 14) + "…  https://testnet.cspr.live/deploy/" + txHash : "(settling)"}`,
         );
-        console.log(`      ↳ ${JSON.stringify(body.data)}`);
       } else {
         const r = await jsonPost<{ session: Session; settlement: SettlementEvent; data: unknown }>(
           `/tick?session=${session.id}`,
         );
         totalPaid = BigInt(r.session.totalPaid);
+        chunk = r.data;
         console.log(
           `   ⛽ tick ${String(tick).padStart(2)} | paid ${fmt(r.settlement.amount)} ${spec.asset} | ` +
             `total ${fmt(r.session.totalPaid)} | ${r.settlement.network}:${r.settlement.txHash.slice(0, 12)}…`,
         );
-        console.log(`      ↳ ${JSON.stringify(r.data)}`);
       }
     } catch (err) {
-      console.error(`   ✋ stream halted: ${(err as Error).message}`);
+      const m = (err as Error).message || "";
+      // A tick that doesn't settle = no payment = the sluice gate shuts. That IS the mechanic.
+      closeReason = m.startsWith("402") ? "tick unpaid — sluice gate shut" : `stream interrupted (${m.slice(0, 60)})`;
+      console.error(`   ✋ ${closeReason}`);
+      break;
+    }
+    console.log(`      ↳ ${JSON.stringify(chunk)}`);
+
+    // ——— the agency: decide whether the stream is still worth paying for ———
+    const lastTickCost = totalPaid - prevPaid;
+    prevPaid = totalPaid;
+    const nextTickMotes = lastTickCost > 0n ? lastTickCost : BigInt(spec.ratePerSecond) * BigInt(Math.ceil(TICK_MS / 1000));
+    const decision = policy.decide(chunk, { tick, spentMotes: totalPaid, nextTickMotes, budgetMotes });
+    console.log(`      🧠 ${decision.reason}`);
+    if (!decision.keepStreaming) {
+      closeReason = decision.reason;
       break;
     }
   }
 
-  const { session: closed } = await jsonPost<{ session: Session }>(`/sessions/${session.id}/close`);
+  const { session: closed } = await jsonPost<{ session: Session }>(`/sessions/${session.id}/close`, { reason: closeReason });
   console.log(
-    `\n✅ ${agentId} done. ${closed.ticks} ticks, total paid ${fmt(closed.totalPaid || totalPaid.toString())} ${spec.asset}.\n`,
+    `\n✅ ${agentId} closed the gate — ${closeReason}\n` +
+      `   ${closed.ticks} ticks, paid ${fmt(closed.totalPaid || totalPaid.toString())} ${spec.asset}.\n`,
   );
 }
 

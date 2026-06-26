@@ -50,6 +50,24 @@ second* a first-class on-chain operation.
 
 ---
 
+## The agents are genuinely autonomous
+
+A Sluice consumer isn't a fixed payment loop — it's a goal-directed agent with an **objective** and a
+**budget** (`agent/src/policy.ts`). Every tick it evaluates the freshly-streamed data and decides
+whether the stream is still worth paying for. The moment the objective is met, the data stops being
+useful, or the budget would be breached, **the agent closes the sluice gate itself**:
+
+- **`trend-hunter`** (price feeds) streams until it sees a price move past its threshold — *signal
+  found, objective met* — or gives up after its patience window to stop burning budget on a flat market.
+- **`job-runner`** (GPU telemetry) pays for the duration of a job but **aborts the instant the GPU
+  crosses a safety temperature**, because paying for an overheating box isn't worth it.
+
+Those decisions are recorded and surfaced live on the `/impact` feed — e.g. *"signal: +0.45% move
+detected — objective met, gate closed"* or *"GPU 79°C > 78°C — aborted job, gate closed"*. The
+self-closing gate is a **decision**, not a timer.
+
+---
+
 ## Verify it yourself (no trust required)
 
 Every settlement Sluice has ever made is recorded with its real Casper transaction hash:
@@ -57,7 +75,7 @@ Every settlement Sluice has ever made is recorded with its real Casper transacti
 ```bash
 # top-line cumulative proof
 curl -s http://localhost:4021/impact | jq '.totals'
-# => { "settlements": 217, "uniqueAgents": 5, "uniqueProviders": 3, "secondsStreamed": 1750, ... }
+# => { "settlements": 275, "uniqueAgents": 5, "uniqueProviders": 3, "secondsStreamed": 2197, ... }
 
 # pull any recent settlement and open it on the block explorer
 curl -s http://localhost:4021/impact | jq '.recent[0] | {txHash, explorerUrl, amount, seconds}'
@@ -126,7 +144,8 @@ See [`docs/PLAN.md`](docs/PLAN.md) for the full owner setup checklist and
 | `server/src/store.ts` | durable proof-feed store (periodic JSON snapshot) |
 | `server/src/index.ts` | Express resource server + session/tick routes + `/impact` |
 | `server/public/impact.html` | live proof-feed dashboard |
-| `agent/src/index.ts` | autonomous consuming agent (streams, pays per tick, stops on its own) |
+| `agent/src/index.ts` | autonomous consuming agent (objective + budget, decides each tick) |
+| `agent/src/policy.ts` | agent policies — `trend-hunter`, `job-runner` (the agency) |
 | `scripts/volume.sh` | sustained-load runner (N concurrent agents → real settlements) |
 | `shared/types.ts` | wire types |
 | `docs/PLAN.md` | architecture, plan, owner prerequisites |

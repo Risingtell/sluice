@@ -41,7 +41,7 @@ app.post("/sessions", (req, res) => {
     return res.status(400).json({ error: "streamId and agent are required" });
   }
   try {
-    const session = meter.openSession(body.streamId, body.agent);
+    const session = meter.openSession(body.streamId, body.agent, { policy: body.policy, objective: body.objective });
     res.status(201).json({ session });
   } catch (err) {
     sendMeterError(res, err);
@@ -83,7 +83,8 @@ app.get("/sessions/:id", (req, res) => {
 
 app.post("/sessions/:id/close", (req, res) => {
   try {
-    res.json({ session: meter.closeSession(req.params.id) });
+    const reason = (req.body as { reason?: string })?.reason;
+    res.json({ session: meter.closeSession(req.params.id, reason) });
   } catch (err) {
     sendMeterError(res, err);
   }
@@ -105,6 +106,7 @@ app.get("/impact", (_req, res) => {
       secondsStreamed: Math.round(t.secondsStreamed),
     },
     recent: store.recentEvents(50),
+    decisions: store.recentDecisions(8),
   };
   res.json(snapshot);
 });

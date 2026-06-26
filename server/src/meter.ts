@@ -51,7 +51,7 @@ export class StreamingMeter {
     private readonly cfg: MeterConfig,
   ) {}
 
-  openSession(streamId: string, agent: string): Session {
+  openSession(streamId: string, agent: string, opts: { policy?: string; objective?: string } = {}): Session {
     const stream = this.requireStream(streamId);
     const now = Date.now();
     const session: Session = {
@@ -64,6 +64,8 @@ export class StreamingMeter {
       totalPaid: "0",
       ticks: 0,
       lastSettledAt: now,
+      policy: opts.policy,
+      objective: opts.objective,
     };
     this.store.putSession(session);
     return session;
@@ -128,11 +130,13 @@ export class StreamingMeter {
     this.store.putSession(session);
   }
 
-  closeSession(sessionId: string): Session {
+  closeSession(sessionId: string, reason?: string): Session {
     const session = this.store.getSession(sessionId);
     if (!session) throw new MeterError(404, "unknown session");
     if (session.status === "active") {
       session.status = "closed";
+      if (reason) session.closedReason = reason;
+      session.closedAt = Date.now();
       this.store.putSession(session);
     }
     return session;

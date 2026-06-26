@@ -48,11 +48,12 @@ economy:
 
 | Metric | Value |
 |---|---|
-| On-chain settlements | **217+** |
+| On-chain settlements | **275** |
 | **Distinct paying agents** | **5** (each its own funded Casper wallet) |
 | **Distinct providers paid** | **3** (each its own treasury) |
-| Seconds streamed & billed | **1,750 s** |
-| Value transferred | **2.45 X402** (CEP-18) |
+| **Autonomous gate-closures recorded** | **12** (objective met / budget / job abort) |
+| Seconds streamed & billed | **2,197 s** |
+| Value transferred | **3.0 X402** (CEP-18) |
 | Streams metered | BTC/USD · ETH/USD · GPU telemetry |
 
 **Verify any of them:** `GET /impact` returns each settlement's real `txHash` and an
@@ -68,9 +69,10 @@ continuous resource — the *payment mechanism* and the multi-party settlement a
 |---|---|
 | Streaming meter | `server/src/meter.ts` — elapsed-seconds × rate per tick, with a hard `MAX_TICK_SECONDS` clock-jump guard |
 | Settlement abstraction | `server/src/settlement.ts` — `SettlementProvider` interface; identical streaming logic in MOCK (no creds) and LIVE |
-| LIVE Casper x402 | `server/src/casper-live.ts` — `paymentMiddleware` + `ExactCasperScheme` + `HTTPFacilitatorClient` + per-tick `DynamicPrice` + `onAfterSettle` → records proof |
-| Resource server | `server/src/index.ts` — session/tick routes + durable `/impact` feed |
-| Autonomous agent | `agent/src/index.ts` — opens a session, signs + pays each tick via `wrapFetchWithPayment`, stops on its own |
+| LIVE Casper x402 | `server/src/casper-live.ts` — `paymentMiddleware` + `ExactCasperScheme` + `HTTPFacilitatorClient` + per-tick `DynamicPrice` + **`DynamicPayTo` (per-provider routing)** + `onAfterSettle` → records proof |
+| Resource server | `server/src/index.ts` — session/tick routes + durable `/impact` feed (settlements + agent decisions) |
+| **Agent autonomy** | `agent/src/policy.ts` — goal-directed policies (`trend-hunter`, `job-runner`) with an objective + budget that decide each tick whether to keep paying and **close the gate themselves** |
+| Autonomous agent | `agent/src/index.ts` — opens a session, signs + pays each tick via `wrapFetchWithPayment`, runs its policy, closes on its own decision |
 | Durable proof | `server/src/store.ts` — periodic JSON snapshot so cumulative numbers survive restarts |
 
 **Stack:** `@make-software/casper-x402` (Casper `exact` scheme), `@x402/express`/`core`/`fetch`,

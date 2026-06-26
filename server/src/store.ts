@@ -5,7 +5,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import type { Session, SettlementEvent, StreamSpec } from "../../shared/types.ts";
+import type { AgentDecision, Session, SettlementEvent, StreamSpec } from "../../shared/types.ts";
 
 interface Snapshot {
   sessions: Session[];
@@ -86,5 +86,25 @@ export class Store {
       providers.add(e.payTo);
     }
     return { settlements: this.events.length, totalPaid, uniqueAgents: agents.size, uniqueProviders: providers.size, secondsStreamed };
+  }
+
+  /** Recent autonomous gate-closures: agents that closed their own stream, newest first. */
+  recentDecisions(limit: number): AgentDecision[] {
+    return [...this.sessions.values()]
+      // Only genuine agentic closes — exclude infra halts (unpaid tick / interrupted) which are
+      // the protocol mechanic / transient hiccups, not a decision the agent's policy made.
+      .filter((s) => s.closedReason && !/^tick unpaid|^stream interrupted|^stream halted/.test(s.closedReason))
+      .sort((a, b) => (b.closedAt ?? 0) - (a.closedAt ?? 0))
+      .slice(0, limit)
+      .map((s) => ({
+        agent: s.agent,
+        streamId: s.streamId,
+        provider: this.streams.get(s.streamId)?.provider,
+        objective: s.objective,
+        closedReason: s.closedReason!,
+        ticks: s.ticks,
+        totalPaid: s.totalPaid,
+        at: s.closedAt ?? s.startedAt,
+      }));
   }
 }
