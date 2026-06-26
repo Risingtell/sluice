@@ -60,8 +60,9 @@ economy:
 `https://testnet.cspr.live/deploy/<txHash>` link. Click through to see the CEP-18 transfer, the
 facilitator's sponsored gas, and the token moving from a specific agent to a specific provider.
 
-**Honest notes:** this is testnet, and each stream's data is a synthetic stand-in for a real
-continuous resource — the *payment mechanism* and the multi-party settlement are 100% real on-chain.
+**Honest notes:** this is Casper testnet. The price streams carry a **real market feed** (live
+BTC/ETH spot from CoinGecko, with a synthetic fallback if upstream blips); GPU telemetry is a
+labelled simulation. The payments and the multi-party settlement are 100% real on-chain.
 
 ## 5. How it's built
 

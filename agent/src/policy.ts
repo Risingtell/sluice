@@ -51,7 +51,9 @@ const pct = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
  * burning budget on a quiet market.
  */
 export function trendHunter(opts: { thresholdPct?: number; patienceTicks?: number } = {}): AgentPolicy {
-  const threshold = opts.thresholdPct ?? 0.4;
+  // Tuned for a real spot feed: BTC/ETH routinely drift a few hundredths of a percent over the short
+  // window an agent streams, so a scalp-sized threshold lets the agent act on genuine market moves.
+  const threshold = opts.thresholdPct ?? 0.05;
   const patience = opts.patienceTicks ?? 8;
   let entry: number | null = null;
   return {

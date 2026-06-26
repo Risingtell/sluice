@@ -89,8 +89,10 @@ same feed.
 **A real multi-party economy.** Volume comes from **5 distinct funded agent wallets** streaming from a
 catalogue whose **3 streams each pay their own provider treasury** — so payments flow between
 independent on-chain parties (`uniqueAgents = 5`, `uniqueProviders = 3`), not one wallet paying itself.
-Every tx is verifiable on cspr.live. (Remaining honest notes: this is testnet, and the streamed data
-is a synthetic stand-in for a real continuous resource — the *payment mechanism* is what's real.)
+Every tx is verifiable on cspr.live. The price streams carry a **real market feed** (live BTC/ETH spot
+from CoinGecko), so agents act on genuine moves; GPU telemetry is an honestly-labelled simulation.
+(Remaining honest note: this is Casper testnet — the payments, the multi-party settlement, and the
+price data are all real.)
 
 ---
 
