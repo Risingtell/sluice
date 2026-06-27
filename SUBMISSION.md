@@ -90,6 +90,14 @@ labelled simulation. The payments and the multi-party settlement are 100% real o
 `casper-js-sdk`, hosted facilitator `x402-facilitator.cspr.cloud` (gas sponsored via its feePayer).
 Node + tsx, no build step.
 
+**On-chain footprint (Casper testnet):**
+- **CEP-18 `X402` token contract — deployed by us** (Odra; package `658bb84b…1300017e`). Every one of
+  the 275 settlements is a real `transfer_with_authorization` against this contract — our own
+  functional, deployed Casper contract.
+- **`SluiceRegistry` contract** (`contracts/sluice_registry`) — anchors each stream's terms +
+  cumulative settlement checkpoints on-chain, so the public `/impact` totals are verifiable against
+  Casper state (trust-minimised). Deploy + sync via `scripts/registry.ts`.
+
 ## 6. Run it in 30 seconds (MOCK, no creds)
 
 ```bash
