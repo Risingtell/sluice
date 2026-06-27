@@ -10,6 +10,10 @@ Built for the [Casper Agentic Buildathon 2026](https://dorahacks.io/hackathon/ca
 > wallet — paying **3 distinct providers**. Every tick is a CEP-18 `transfer_with_authorization`
 > signed by the agent's own key and finalized by the x402 facilitator, clickable through to
 > **testnet.cspr.live**. See the [`/impact`](#verify-it-yourself-no-trust-required) proof feed.
+>
+> Two of our **own Casper contracts** are deployed: the CEP-18 `X402` token every payment moves, and
+> the **`SluiceRegistry`** ([on-chain](https://testnet.cspr.live/contract-package/a7cbd09cc9f99216141ede2dd063c57208e94ee0ca62780e3194beb05cf352cc))
+> that anchors the settlement totals on Casper — so the proof feed is verifiable against chain state.
 
 ---
 

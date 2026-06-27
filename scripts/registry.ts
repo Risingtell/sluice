@@ -120,9 +120,9 @@ async function sync() {
     const seconds = Math.round(rows.reduce((a: number, e: any) => a + (e.seconds || 0), 0));
     await call("checkpoint", Args.fromMap({
       stream_id: CLValue.newCLString(st.id),
-      settlements: CLValue.newCLUInt64(settlements),
+      settlements: CLValue.newCLUint64(settlements),
       total_paid: CLValue.newCLUInt256(totalPaid.toString()),
-      seconds_streamed: CLValue.newCLUInt64(seconds),
+      seconds_streamed: CLValue.newCLUint64(seconds),
     }));
     console.log(`   ${st.id}: ${settlements} settlements, ${(Number(totalPaid) / 1e9).toFixed(4)} X402 anchored`);
   }
