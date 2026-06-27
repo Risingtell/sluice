@@ -8,6 +8,7 @@
     "server": "tsx watch server/src/index.ts",
     "server:once": "tsx server/src/index.ts",
     "agent": "tsx agent/src/index.ts",
+    "verify": "tsx scripts/verify-onchain.ts",
     "demo": "concurrently -k -n server,agent -c green,cyan \"npm:server:once\" \"node -e 'setTimeout(()=>{},1500)' && sleep 2 && npm:agent\"",
     "typecheck": "tsc --noEmit"
   },

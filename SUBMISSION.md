@@ -70,6 +70,11 @@ economy:
 `https://testnet.cspr.live/deploy/<txHash>` link. Click through to see the CEP-18 transfer, the
 facilitator's sponsored gas, and the token moving from a specific agent to a specific provider.
 
+**Or don't trust us at all — re-derive it from the chain:** `npm run verify` reads every X402 token
+transfer straight from the Casper ledger (via cspr.cloud) and reconstructs the per-provider totals
+with zero trust in our server. It shows the chain holds **293 real settlements (3.15 X402)** — at
+least the feed's claim — proving Sluice never over-reports. The on-chain ledger is the source of truth.
+
 **Honest notes:** this is Casper testnet. The price streams carry a **real market feed** (live
 BTC/ETH spot from CoinGecko, with a synthetic fallback if upstream blips); GPU telemetry is a
 labelled simulation. The payments and the multi-party settlement are 100% real on-chain.

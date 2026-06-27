@@ -52,7 +52,8 @@ export const STREAMS: StreamSpec[] = [
     ratePerSecond: "1000000", // 0.001 CSPR/s
     asset: "X402",
     provider: "Lumen Markets",
-    payTo: process.env.PAYEE_BTC || process.env.PAYEE_ADDRESS || "00b76372880f98f0ddaf31257e32fb5b1b787a7bd9d20642dfac63b32ff7367a12",
+    // Dedicated provider treasury (NOT the funding wallet) so settlements flow to an independent party.
+    payTo: process.env.PAYEE_BTC || "00b76372880f98f0ddaf31257e32fb5b1b787a7bd9d20642dfac63b32ff7367a12",
   },
   {
     id: "eth-usd",

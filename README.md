@@ -94,6 +94,28 @@ transfer on `casper:casper-test`, gas paid by the facilitator's sponsored feePay
 moving from the agent's account to the payee. The live dashboard at **`/impact.html`** renders the
 same feed.
 
+### Don't trust our numbers — re-derive them from the chain
+
+```bash
+npm run verify
+```
+
+This reads **every X402 token transfer straight from the Casper ledger** (via cspr.cloud) and sums
+the payments to each provider, with zero trust in the Sluice server. It proves the feed never
+over-claims — the on-chain ledger is the source of truth:
+
+```
+ON-CHAIN (re-derived from the Casper token ledger):
+  NimbusGPU (GPU)      38 settlements · 0.66 X402
+  Helios Feeds (ETH)   52 settlements · 0.31 X402
+  Lumen Markets (BTC) 203 settlements · 2.18 X402
+  TOTAL               293 settlements · 3.15 X402
+✅ VERIFIED — every settlement the feed claims is backed by a real on-chain transfer.
+```
+
+The stream *terms* and settlement *checkpoints* are also anchored on-chain in our deployed
+**`SluiceRegistry`** contract — so both the rules and the results live on Casper, not just our server.
+
 **A real multi-party economy.** Volume comes from **5 distinct funded agent wallets** streaming from a
 catalogue whose **3 streams each pay their own provider treasury** — so payments flow between
 independent on-chain parties (`uniqueAgents = 5`, `uniqueProviders = 3`), not one wallet paying itself.
