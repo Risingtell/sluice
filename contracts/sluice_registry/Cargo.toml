@@ -5,13 +5,13 @@ edition = "2021"
 description = "On-chain anchor for the Sluice streaming x402 economy (stream terms + settlement checkpoints)."
 
 [dependencies]
-odra = { version = "2.1.0", default-features = false }
+odra = { version = "2.8.2", default-features = false }
 
 [dev-dependencies]
-odra-test = "2.1.0"
+odra-test = "2.8.2"
 
 [build-dependencies]
-odra-build = "2.1.0"
+odra-build = "2.8.2"
 
 [[bin]]
 name = "sluice_registry_build_contract"

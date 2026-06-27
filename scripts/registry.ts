@@ -65,6 +65,7 @@ async function deploy() {
     odra_cfg_package_hash_key_name: CLValue.newCLString(PACKAGE_KEY),
     odra_cfg_allow_key_override: CLValue.newCLValueBool(true),
     odra_cfg_is_upgradable: CLValue.newCLValueBool(true),
+    odra_cfg_is_upgrade: CLValue.newCLValueBool(false),
   });
   const tx = new casperSdk.SessionBuilder()
     .from(agent.publicKey).chainName(CHAIN_NAME).wasm(wasm)
