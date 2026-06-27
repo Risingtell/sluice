@@ -94,9 +94,11 @@ Node + tsx, no build step.
 - **CEP-18 `X402` token contract — deployed by us** (Odra; package `658bb84b…1300017e`). Every one of
   the 275 settlements is a real `transfer_with_authorization` against this contract — our own
   functional, deployed Casper contract.
-- **`SluiceRegistry` contract** (`contracts/sluice_registry`) — anchors each stream's terms +
-  cumulative settlement checkpoints on-chain, so the public `/impact` totals are verifiable against
-  Casper state (trust-minimised). Deploy + sync via `scripts/registry.ts`.
+- **`SluiceRegistry` contract** (`contracts/sluice_registry`) — an Odra contract that anchors each
+  stream's terms + cumulative settlement checkpoints on-chain, so the public `/impact` totals become
+  verifiable against Casper state (trust-minimised). Source + one-command deploy/sync tooling
+  (`scripts/registry.ts`) are in the repo; it builds on a Linux Odra toolchain and is the next
+  on-chain step.
 
 ## 6. Run it in 30 seconds (MOCK, no creds)
 
