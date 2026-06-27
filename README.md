@@ -48,6 +48,10 @@ plumbing layered on top. **Continuous per-second streaming settlement was unoccu
 a marketplace and isn't an escrow — it's the metering primitive that makes *renting a resource by the
 second* a first-class on-chain operation.
 
+It's **agentic DeFi in practice**: the flagship consumer is a trading agent renting a live market
+feed, paying per second only while it hunts a signal and cutting off the moment it's done — the
+capital-efficient, autonomous behaviour Casper's agent-economy vision is built for.
+
 ---
 
 ## The agents are genuinely autonomous

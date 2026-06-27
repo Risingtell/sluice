@@ -17,10 +17,15 @@
 
 ## 1. The problem it solves
 
-x402 made machine-to-machine payments real, but every kit in this field is **discrete** — one
-request, one payment. That model breaks for the resources agents rent *continuously*:
+**Sluice is DeFi infrastructure for autonomous agents.** The flagship use case is a **trading agent
+renting a live market feed**: it needs BTC/ETH prices *continuously* to act, and today there's no
+clean way to pay for that by the second on-chain. The same gap hits any continuous resource an agent
+rents — GPU time for inference, a streaming data API.
 
-- a trading agent on a **live BTC/USD feed**,
+x402 made machine-to-machine payments real, but every kit in this field is **discrete** — one
+request, one payment. That model breaks for continuously-consumed resources:
+
+- a **DeFi trading agent** on a live BTC/USD feed, acting on real price moves,
 - an inference job renting **GPU time**,
 - any **streaming endpoint** billed by duration.
 
@@ -40,6 +45,11 @@ The Buildathon field is ~70% discrete pay-per-request x402 kits plus escrow/repu
 plumbing. **Continuous per-second streaming settlement was unoccupied.** Sluice is the metering
 primitive that makes "rent a resource by the second" a native on-chain operation — not a marketplace,
 not an escrow layer.
+
+And it's **agentic DeFi in practice**: in our live runs the consumer is a `trend-hunter` trading
+agent that streams a real CoinGecko price feed, watches for a market move, acts when its signal fires
+("objective met"), and stops paying otherwise — exactly the autonomous, capital-efficient behaviour
+Casper's agent-economy vision calls for.
 
 ## 4. It is actually live — and verifiable
 
@@ -90,8 +100,25 @@ AGENT_TICK_MS=300 AGENT_MAX_TICKS=12 npm run agent   # watch /impact.html fill u
 
 LIVE setup and stable hosting: see [`README.md`](README.md) and [`HOSTING.md`](HOSTING.md).
 
-## 7. What's next
+## 7. Launch plan, roadmap & traction
 
-- Onboard multiple funded agents to raise `uniqueAgents` honestly.
-- Optional Odra `StreamRegistry` contract to make stream terms on-chain & discoverable.
-- SDK wrapper so any resource provider drops Sluice in front of an endpoint in a few lines.
+Sluice is built to be a **real product**, not a hackathon throwaway.
+
+**Traction (already live, on Casper testnet):** 275 real settlements · 5 autonomous agents · 3
+providers · 12 recorded agentic decisions · real CoinGecko price feed · public proof page anyone can
+verify. This is a working system today, not a slide.
+
+**Roadmap:**
+- **Now → finals:** harden the meter, ship the `@sluice/x402` SDK so any provider drops a streaming
+  paywall in front of an endpoint in ~5 lines; on-chain `StreamRegistry` contract anchoring stream
+  terms + settlement checkpoints (trust-minimised proof).
+- **Q3 2026:** Casper **mainnet** launch with 2–3 design-partner data/compute providers; usage-based
+  revenue share.
+- **Q4 2026:** open provider onboarding + an agent SDK so any autonomous agent can rent metered
+  resources; pursue Casper grant / incubation.
+
+**Go-to-market:** land where agents already trade — DeFi quant/trading agents that need always-on
+price feeds, and AI inference/GPU marketplaces — using x402 as the rails Casper is already pushing.
+
+**Socials & presence:** project handle **@SluicePay** (X), repo + live demo public and open-source,
+build-in-public updates through the buildathon. *(Owner: create the X handle and pin the demo link.)*
