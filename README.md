@@ -5,6 +5,8 @@ agent stops consuming.** No subscriptions, no pre-bought credits.
 
 Built for the [Casper Agentic Buildathon 2026](https://dorahacks.io/hackathon/casper-agentic-buildathon).
 
+**🎥 Demo video:** https://youtu.be/xIFQ-KtzsBw  ·  **🔗 Live proof:** https://risingtell.github.io/sluice/
+
 > **It's live, and it's a real economy.** Sluice has settled **200+ real per-second payments on
 > `casper:casper-test`** across **5 independent autonomous agents** — each with its own funded Casper
 > wallet — paying **3 distinct providers**. Every tick is a CEP-18 `transfer_with_authorization`

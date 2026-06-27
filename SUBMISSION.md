@@ -6,7 +6,7 @@
 
 - **Repo:** https://github.com/Risingtell/sluice
 - **Live proof feed:** https://risingtell.github.io/sluice/impact.html  ·  JSON: https://risingtell.github.io/sluice/proof.json
-- **Demo video:** <youtube/loom URL — to add>
+- **Demo video:** https://youtu.be/xIFQ-KtzsBw
 - **Network:** `casper:casper-test`
 
 > The proof page is a verifiable snapshot of real on-chain settlements (every row links to
