@@ -37,19 +37,49 @@ const PROVIDER_NAMES: Record<string, string> = {
 
 const fmt = (m: bigint) => (Number(m) / 1e9).toLocaleString(undefined, { maximumFractionDigits: 6 });
 
-async function fetchAllActions(): Promise<any[]> {
-  const out: any[] = [];
-  let page = 1;
-  for (;;) {
-    const url = `${BASE}/contract-packages/${X402_PKG}/ft-token-actions?page=${page}&page_size=100`;
-    const res = await fetch(url, { headers: { Authorization: KEY } });
-    if (!res.ok) throw new Error(`cspr.cloud ${res.status}`);
-    const j = (await res.json()) as { data: any[]; page_count: number };
-    out.push(...(j.data || []));
-    if (page >= (j.page_count || 1)) break;
-    page++;
+const CACHE = "server/.data/onchain-actions.json";
+
+async function getJSON(url: string, attempts = 4): Promise<any> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 30000); // cspr.cloud can take several seconds/page
+      const res = await fetch(url, { headers: { Authorization: KEY }, signal: ctrl.signal });
+      clearTimeout(t);
+      if (!res.ok) throw new Error(`cspr.cloud ${res.status}`);
+      return await res.json();
+    } catch (e) {
+      lastErr = e;
+      await new Promise((r) => setTimeout(r, 1500 * (i + 1))); // backoff, then retry
+    }
   }
-  return out;
+  throw lastErr;
+}
+
+async function fetchAllActions(): Promise<any[]> {
+  try {
+    const out: any[] = [];
+    let page = 1;
+    for (;;) {
+      const j = await getJSON(`${BASE}/contract-packages/${X402_PKG}/ft-token-actions?page=${page}&page_size=100`);
+      out.push(...(j.data || []));
+      if (page >= (j.page_count || 1)) break;
+      page++;
+    }
+    // Cache the raw on-chain ledger so the verification is reproducible even if cspr.cloud is down.
+    try { (await import("node:fs")).writeFileSync(CACHE, JSON.stringify(out)); } catch {}
+    return out;
+  } catch (e) {
+    // Network blip during a live demo? Fall back to the last cached on-chain pull — still real data.
+    try {
+      const cached = JSON.parse((await import("node:fs")).readFileSync(CACHE, "utf8"));
+      console.log("(cspr.cloud unreachable — using the last cached on-chain ledger pull)\n");
+      return cached;
+    } catch {
+      throw e;
+    }
+  }
 }
 
 async function main() {
