@@ -137,5 +137,5 @@ verify. This is a working system today, not a slide.
 **Go-to-market:** land where agents already trade — DeFi quant/trading agents that need always-on
 price feeds, and AI inference/GPU marketplaces — using x402 as the rails Casper is already pushing.
 
-**Socials & presence:** project handle **@SluicePay** (X), repo + live demo public and open-source,
-build-in-public updates through the buildathon. *(Owner: create the X handle and pin the demo link.)*
+**Socials & presence:** project handle **[@agentsluice](https://x.com/agentsluice)** (X), repo + live
+demo public and open-source, build-in-public updates through the buildathon.
