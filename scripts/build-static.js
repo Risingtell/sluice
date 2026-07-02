@@ -68,9 +68,10 @@ function staticize(html) {
   return html
     .replaceAll('fetch("/impact")', 'fetch("./proof.json")')
     .replaceAll('href="/index.html"', 'href="index.html"')
-    .replaceAll('href="/impact.html"', 'href="impact.html"');
+    .replaceAll('href="/impact.html"', 'href="impact.html"')
+    .replaceAll('href="/roadmap.html"', 'href="roadmap.html"');
 }
-for (const page of ["index.html", "impact.html"]) {
+for (const page of ["index.html", "impact.html", "roadmap.html"]) {
   const src = `server/public/${page}`;
   if (!existsSync(src)) continue;
   writeFileSync(`${OUT}/${page}`, staticize(readFileSync(src, "utf8")));

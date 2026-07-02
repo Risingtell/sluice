@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sluice — Roadmap</title>
+    <meta name="description" content="From buildathon prototype to production: what Sluice has shipped on Casper testnet and where the streaming x402 meter goes next." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0a0a0a; --panel: #141414; --line: #262626; --ink: #f5f5f5;
+        --dim: #a3a3a3; --teal: #ffd400; --teal2: #ffe27a; --green: #6ee7a8; --purple: #e9d8a6;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body { margin: 0; background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased;
+        font: 16px/1.65 "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+      .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+      a { color: var(--teal2); }
+      .wrap { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+      header { border-bottom: 1px solid var(--line); position: sticky; top: 0;
+        background: rgba(7,11,17,.82); backdrop-filter: blur(8px); z-index: 5; }
+      header .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; max-width: 960px; }
+      .brand { font-weight: 700; font-size: 19px; letter-spacing: -.01em; text-decoration: none; color: var(--ink); }
+      .brand b { color: var(--teal); }
+      nav a { color: var(--dim); text-decoration: none; margin-left: 22px; font-size: 14px; }
+      nav a:hover, nav a.on { color: var(--ink); }
+
+      .hero { padding: 74px 0 20px; }
+      .pill { display: inline-block; font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+        color: var(--teal); border: 1px solid #5c4d00; background: #1a1600; padding: 4px 12px; border-radius: 999px; }
+      h1 { font-size: 46px; line-height: 1.05; letter-spacing: -.025em; margin: 18px 0 16px; }
+      h1 .grad { background: linear-gradient(100deg, var(--teal), var(--teal2) 60%, var(--purple));
+        -webkit-background-clip: text; background-clip: text; color: transparent; }
+      .lede { font-size: 19px; color: var(--dim); max-width: 660px; }
+
+      .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin: 34px 0 8px; }
+      .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+      .stat .n { font-size: 26px; font-weight: 700; color: var(--teal2); }
+      .stat .l { font-size: 11.5px; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; margin-top: 4px; }
+
+      .timeline { position: relative; margin: 46px 0 20px; padding-left: 34px; }
+      .timeline::before { content: ""; position: absolute; left: 9px; top: 6px; bottom: 6px; width: 2px;
+        background: linear-gradient(var(--teal), var(--line)); }
+      .phase { position: relative; margin-bottom: 30px; }
+      .phase::before { content: ""; position: absolute; left: -33px; top: 4px; width: 14px; height: 14px;
+        border-radius: 50%; background: var(--bg); border: 2px solid var(--teal); }
+      .phase.shipped::before { background: var(--teal); }
+      .phase.next::before { border-color: var(--teal2); }
+      .phase.future::before { border-color: var(--line); }
+      .phase .when { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
+      .phase h2 { font-size: 23px; letter-spacing: -.015em; margin: 4px 0 6px; }
+      .badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+        padding: 2px 9px; border-radius: 999px; margin-left: 8px; vertical-align: 3px; }
+      .badge.done { background: #10331f; color: var(--green); border: 1px solid #1f5e39; }
+      .badge.wip { background: #1a1600; color: var(--teal); border: 1px solid #5c4d00; }
+      .badge.plan { background: #16161a; color: var(--dim); border: 1px solid var(--line); }
+      .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px; }
+      .phase.shipped .card { border-color: #2f4a37; }
+      ul.feat { margin: 0; padding-left: 18px; color: var(--dim); font-size: 15px; }
+      ul.feat li { margin: 7px 0; }
+      ul.feat b { color: var(--ink); font-weight: 600; }
+      code { font-family: "JetBrains Mono", monospace; font-size: 13px; color: var(--teal2);
+        background: #16160a; border: 1px solid #33330f; border-radius: 5px; padding: 1px 6px; }
+
+      .cta { margin: 40px 0 10px; display: flex; gap: 14px; flex-wrap: wrap; }
+      .btn { display: inline-block; padding: 12px 22px; border-radius: 10px; font-weight: 600;
+        text-decoration: none; font-size: 15px; }
+      .btn.primary { background: var(--teal); color: #1a1500; }
+      .btn.ghost { border: 1px solid var(--line); color: var(--ink); }
+
+      footer { border-top: 1px solid var(--line); padding: 36px 0; margin-top: 40px; color: var(--dim); font-size: 14px; }
+      footer a { color: var(--dim); }
+      @media (max-width: 720px) { h1 { font-size: 36px; } nav a:nth-child(2) { display: none; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <a class="brand" href="/index.html">💧 <b>Sluice</b></a>
+        <nav>
+          <a href="/index.html">Home</a>
+          <a href="/impact.html">Live proof</a>
+          <a href="/roadmap.html" class="on">Roadmap</a>
+          <a href="https://github.com/Risingtell/sluice">GitHub</a>
+          <a href="https://x.com/agentsluice" target="_blank" rel="noopener">𝕏</a>
+        </nav>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <section class="hero">
+        <span class="pill">Casper Agentic Buildathon 2026</span>
+        <h1>From prototype to <span class="grad">production</span>.</h1>
+        <p class="lede">
+          Sluice is built to be a real product, not a hackathon throwaway. Here's what's already
+          live on Casper testnet — and where the streaming x402 meter goes next.
+        </p>
+        <div class="stats" id="stats">
+          <div class="stat"><div class="n">275</div><div class="l">settlements</div></div>
+          <div class="stat"><div class="n">5</div><div class="l">agents</div></div>
+          <div class="stat"><div class="n">3</div><div class="l">providers</div></div>
+          <div class="stat"><div class="n">2</div><div class="l">deployed contracts</div></div>
+        </div>
+      </section>
+
+      <div class="timeline">
+        <div class="phase shipped">
+          <div class="when">Qualification Round · shipped</div>
+          <h2>What's live today <span class="badge done">Shipped</span></h2>
+          <div class="card">
+            <ul class="feat">
+              <li><b>Per-second streaming x402 meter</b>, running live on Casper testnet</li>
+              <li><b>275 real on-chain settlements</b> · 5 autonomous agents · 3 providers · 12 recorded agentic decisions</li>
+              <li><b>Two deployed Casper contracts</b>: a CEP-18 X402 token and the <code>SluiceRegistry</code> anchoring stream terms + settlement checkpoints</li>
+              <li><b>Trustless on-chain verifier</b> — every published number is re-derived straight from the Casper ledger, so the feed can never over-claim</li>
+              <li><b>Real CoinGecko price feed</b> driving the trading-agent streams</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="phase next">
+          <div class="when">Now → Final Round</div>
+          <h2>Hardening &amp; the SDK <span class="badge wip">In progress</span></h2>
+          <div class="card">
+            <ul class="feat">
+              <li><b>Ship the <code>@sluice/x402</code> SDK</b> — any provider drops a streaming paywall in front of an endpoint in ~5 lines</li>
+              <li><b>Harden the meter</b> — micro-batched settlement, reconnection, quota-aware pacing</li>
+              <li><b>Expand the proof feed</b> with more agents and more live streams</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="phase future">
+          <div class="when">Q3 2026</div>
+          <h2>Mainnet + design partners <span class="badge plan">Planned</span></h2>
+          <div class="card">
+            <ul class="feat">
+              <li><b>Casper mainnet launch</b> with 2–3 design-partner data / compute providers</li>
+              <li><b>Usage-based revenue share</b> for providers metering their resources through Sluice</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="phase future">
+          <div class="when">Q4 2026</div>
+          <h2>Open network + agent SDK <span class="badge plan">Planned</span></h2>
+          <div class="card">
+            <ul class="feat">
+              <li><b>Open provider onboarding</b> — self-serve streaming paywalls</li>
+              <li><b>Agent SDK</b> so any autonomous agent can rent metered resources</li>
+              <li>Pursue <b>Casper grant / incubation</b></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="cta">
+        <a class="btn primary" href="/impact.html">See the live settlements →</a>
+        <a class="btn ghost" href="https://x.com/agentsluice" target="_blank" rel="noopener">Follow @agentsluice on 𝕏</a>
+      </div>
+    </div>
+
+    <footer>
+      <div class="wrap">
+        Sluice · streaming x402 meter for the agent economy · built on
+        <a href="https://www.casper.network/ai">Casper AI Toolkit</a> ·
+        <a href="https://github.com/Risingtell/sluice">GitHub</a> ·
+        <a href="https://x.com/agentsluice" target="_blank" rel="noopener">𝕏 @agentsluice</a>.
+      </div>
+    </footer>
+
+    <script>
+      // Pull the current headline numbers from the proof feed (rewritten to ./proof.json on the static mirror).
+      (async () => {
+        try {
+          const s = await fetch("/impact").then((r) => r.json());
+          const t = s.totals;
+          const rows = [
+            ["settlements", t.settlements.toLocaleString()],
+            ["agents", t.uniqueAgents],
+            ["providers", t.uniqueProviders ?? 1],
+            ["deployed contracts", "2"],
+          ];
+          document.getElementById("stats").innerHTML = rows
+            .map(([l, n]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`)
+            .join("");
+        } catch (e) {}
+      })();
+    </script>
+  </body>
+</html>
