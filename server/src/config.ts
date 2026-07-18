@@ -34,7 +34,9 @@ export function loadConfig(): ServerConfig {
     facilitatorUrl: process.env.FACILITATOR_URL || "https://x402-facilitator.cspr.cloud",
     facilitatorApiKey: process.env.FACILITATOR_API_KEY || "",
     maxTickSeconds: parseInt(process.env.MAX_TICK_SECONDS || "10", 10),
-    snapshotPath: process.env.SNAPSHOT_PATH || "server/.data/impact.json",
+    // MOCK and LIVE keep SEPARATE snapshots: simulated events must never mix into the on-chain
+    // proof data (a mock run once left synthetic rows in the live feed — never again).
+    snapshotPath: process.env.SNAPSHOT_PATH || (mode === "live" ? "server/.data/impact.json" : "server/.data/impact.mock.json"),
   };
 }
 

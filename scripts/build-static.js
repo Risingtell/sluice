@@ -19,7 +19,9 @@ mkdirSync(OUT, { recursive: true });
 
 // 1) Compute the same ImpactSnapshot shape the server's /impact returns, from the durable data.
 const raw = JSON.parse(readFileSync(DATA, "utf8"));
-const events = raw.events ?? [];
+// Defense in depth: the PUBLIC proof only ever contains real on-chain settlements. Mock/simulated
+// events (network "mock", no explorer link) are excluded even if a snapshot ever gets mixed.
+const events = (raw.events ?? []).filter((e) => e.network !== "mock" && e.explorerUrl);
 let totalPaid = 0n;
 let secondsStreamed = 0;
 const agents = new Set();

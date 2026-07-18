@@ -9,3 +9,11 @@ server/.data/
 keys/
 cloudflared.exe
 *.tunnel.log
+
+# internal working docs — never public (hackathon-ship skill rule)
+SUBMISSION.md
+DEMO_SCRIPT.md
+SOCIAL.md
+SCORECARD.md
+HOSTING.md
+PLAN.md

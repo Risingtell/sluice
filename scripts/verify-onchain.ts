@@ -37,7 +37,10 @@ const PROVIDER_NAMES: Record<string, string> = {
 
 const fmt = (m: bigint) => (Number(m) / 1e9).toLocaleString(undefined, { maximumFractionDigits: 6 });
 
-const CACHE = "server/.data/onchain-actions.json";
+// Committed snapshot of the raw on-chain ledger pull, so `npm run verify` works with ZERO setup
+// (no cspr.cloud key needed). With FACILITATOR_API_KEY set, the ledger is re-pulled live instead
+// and the snapshot refreshed.
+const CACHE = "data/onchain-actions.json";
 
 async function getJSON(url: string, attempts = 4): Promise<any> {
   let lastErr: unknown;
@@ -57,7 +60,23 @@ async function getJSON(url: string, attempts = 4): Promise<any> {
   throw lastErr;
 }
 
+function readCache(note: string): any[] {
+  const cached = JSON.parse(readFileSync(CACHE, "utf8"));
+  console.log(`(${note})\n`);
+  return cached;
+}
+
 async function fetchAllActions(): Promise<any[]> {
+  if (!KEY) {
+    // Zero-setup path: verify against the committed ledger snapshot. Same real on-chain data,
+    // just not a live re-pull. Set FACILITATOR_API_KEY (free key from console.cspr.cloud) to
+    // re-derive from the live ledger instead.
+    try {
+      return readCache("no CSPR.cloud key set: verifying against the committed on-chain ledger snapshot; set FACILITATOR_API_KEY for a live re-pull");
+    } catch {
+      throw new Error("no FACILITATOR_API_KEY and no committed ledger snapshot found");
+    }
+  }
   try {
     const out: any[] = [];
     let page = 1;
@@ -67,15 +86,13 @@ async function fetchAllActions(): Promise<any[]> {
       if (page >= (j.page_count || 1)) break;
       page++;
     }
-    // Cache the raw on-chain ledger so the verification is reproducible even if cspr.cloud is down.
+    // Refresh the committed snapshot so the zero-setup path stays current.
     try { (await import("node:fs")).writeFileSync(CACHE, JSON.stringify(out)); } catch {}
     return out;
   } catch (e) {
-    // Network blip during a live demo? Fall back to the last cached on-chain pull — still real data.
+    // Network blip during a live demo? Fall back to the snapshot, still real ledger data.
     try {
-      const cached = JSON.parse((await import("node:fs")).readFileSync(CACHE, "utf8"));
-      console.log("(cspr.cloud unreachable — using the last cached on-chain ledger pull)\n");
-      return cached;
+      return readCache("cspr.cloud unreachable: using the last saved on-chain ledger pull");
     } catch {
       throw e;
     }
@@ -116,15 +133,15 @@ async function main() {
     console.log("PROOF FEED claims:");
     console.log(`  ${"TOTAL".padEnd(15)} ${String(claimed).padStart(3)} settlements · ${fmt(claimedPaid)} X402\n`);
     if (totalCount >= claimed && grandTotal >= claimedPaid) {
-      console.log(`✅ VERIFIED — every settlement the feed claims is backed by a real on-chain transfer.`);
-      console.log(`   The chain shows ${totalCount} settlements (${fmt(grandTotal)} X402) — at least the feed's`);
+      console.log(`VERIFIED: every settlement the feed claims is backed by a real on-chain transfer.`);
+      console.log(`   The chain shows ${totalCount} settlements (${fmt(grandTotal)} X402), at least the feed's`);
       console.log(`   ${claimed} (${fmt(claimedPaid)} X402). Sluice never over-claims; the on-chain ledger is the source of truth.`);
     } else {
-      console.log(`⚠️ chain (${totalCount}) is below the feed's claim (${claimed}) — investigate.`);
+      console.log(`WARNING: chain (${totalCount}) is below the feed's claim (${claimed}). Investigate.`);
     }
   } catch {
-    console.log("(proof feed not found locally — on-chain totals above stand on their own.)");
+    console.log("(proof feed not found locally; on-chain totals above stand on their own.)");
   }
 }
 
-main().catch((e) => { console.error("❌", (e as Error).message); process.exit(1); });
+main().catch((e) => { console.error("ERROR:", (e as Error).message); process.exit(1); });

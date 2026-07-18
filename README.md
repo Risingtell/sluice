@@ -1,33 +1,34 @@
-# 💧 Sluice — streaming x402 meter for the agent economy
+# Sluice: streaming x402 meter for the agent economy
 
 **Pay per second of use, settled on-chain via Casper x402, and the meter shuts the instant an
 agent stops consuming.** No subscriptions, no pre-bought credits.
 
 Built for the [Casper Agentic Buildathon 2026](https://dorahacks.io/hackathon/casper-agentic-buildathon).
 
-**🎥 Demo video:** https://youtu.be/xIFQ-KtzsBw  ·  **🔗 Live proof:** https://risingtell.github.io/sluice/
+**Demo video:** https://youtu.be/xIFQ-KtzsBw · **Live proof:** https://risingtell.github.io/sluice/ ·
+**Judge quickstart:** [JUDGE-QUICKSTART.md](JUDGE-QUICKSTART.md)
 
-> **It's live, and it's a real economy.** Sluice has settled **200+ real per-second payments on
-> `casper:casper-test`** across **5 independent autonomous agents** — each with its own funded Casper
-> wallet — paying **3 distinct providers**. Every tick is a CEP-18 `transfer_with_authorization`
+> **It's live, and it's a real economy.** Sluice has settled **283 real per-second payments on
+> `casper:casper-test`** across **5 independent autonomous agents**, each with its own funded Casper
+> wallet, paying **3 distinct providers**. Every tick is a CEP-18 `transfer_with_authorization`
 > signed by the agent's own key and finalized by the x402 facilitator, clickable through to
 > **testnet.cspr.live**. See the [`/impact`](#verify-it-yourself-no-trust-required) proof feed.
 >
 > Two of our **own Casper contracts** are deployed: the CEP-18 `X402` token every payment moves, and
 > the **`SluiceRegistry`** ([on-chain](https://testnet.cspr.live/contract-package/a7cbd09cc9f99216141ede2dd063c57208e94ee0ca62780e3194beb05cf352cc))
-> that anchors the settlement totals on Casper — so the proof feed is verifiable against chain state.
+> that anchors the settlement totals on Casper, so the proof feed is verifiable against chain state.
 
 ---
 
 ## The problem
 
 x402 unlocked machine-to-machine payments, but the whole wave so far is **discrete**: one request,
-one payment. That fits an API call. It does *not* fit the things agents actually rent continuously —
+one payment. That fits an API call. It does *not* fit the things agents actually rent continuously:
 a **live price feed**, **GPU time**, a **streaming inference endpoint**. Charging those per-request
 forces ugly choices: pre-bought credits (capital locked up, refunds), coarse subscriptions (pay for
 idle time), or after-the-fact invoicing (counterparty risk).
 
-## The solution — a streaming meter
+## The solution: a streaming meter
 
 Sluice adds the missing axis: **continuous, per-second streaming settlement.**
 
@@ -44,36 +45,48 @@ Casper x402 Facilitator  →  real CEP-18 transfer on casper:casper-test
 ```
 
 The agent pays only for the seconds it actually consumes. **Stop consuming and the next tick never
-fires — the stream halts itself.** That self-closing cutoff is the "sluice gate," and it's the whole
+fires; the stream halts itself.** That self-closing cutoff is the "sluice gate," and it's the whole
 point: no trust, no escrow, no clawback. The meter *is* the enforcement.
 
 ## Why it's different from the rest of the field
 
-The Buildathon field is ~70% discrete pay-per-request x402 kits, plus trust/escrow/reputation
+The Buildathon field is mostly discrete pay-per-request x402 kits, plus trust/escrow/reputation
 plumbing layered on top. **Continuous per-second streaming settlement was unoccupied.** Sluice isn't
-a marketplace and isn't an escrow — it's the metering primitive that makes *renting a resource by the
+a marketplace and isn't an escrow. It's the metering primitive that makes *renting a resource by the
 second* a first-class on-chain operation.
 
 It's **agentic DeFi in practice**: the flagship consumer is a trading agent renting a live market
-feed, paying per second only while it hunts a signal and cutting off the moment it's done — the
-capital-efficient, autonomous behaviour Casper's agent-economy vision is built for.
+feed, paying per second only while it hunts a signal and cutting off the moment it's done, which is
+the capital-efficient, autonomous behaviour Casper's agent-economy vision is built for.
+
+## Capability map: what Sluice exercises on Casper
+
+| Sluice flow | Casper / x402 capability used |
+|---|---|
+| Per-tick payment challenge + retry | `@x402/express` `paymentMiddleware` with `DynamicPrice` (per-tick variable pricing) |
+| Agent signs each tick | `@make-software/casper-x402` `ExactCasperScheme` client, EIP-712 `transfer_with_authorization` over CEP-18 |
+| Settlement without agent gas | Hosted x402 Facilitator (`x402-facilitator.cspr.cloud`) `/verify` + `/settle`, sponsored feePayer pays gas |
+| Payment token | Our own deployed CEP-18 `X402` token contract (Odra), package `658bb84b...` |
+| Per-provider routing | `DynamicPayTo`: each stream's ticks settle to that provider's own Casper account |
+| On-chain anchoring of terms + totals | Our own deployed `SluiceRegistry` contract (Odra), package `a7cbd09c...` |
+| Trustless audit | `npm run verify` re-derives every settlement from the Casper token ledger via cspr.cloud |
 
 ---
 
 ## The agents are genuinely autonomous
 
-A Sluice consumer isn't a fixed payment loop — it's a goal-directed agent with an **objective** and a
+A Sluice consumer isn't a fixed payment loop. It's a goal-directed agent with an **objective** and a
 **budget** (`agent/src/policy.ts`). Every tick it evaluates the freshly-streamed data and decides
 whether the stream is still worth paying for. The moment the objective is met, the data stops being
 useful, or the budget would be breached, **the agent closes the sluice gate itself**:
 
-- **`trend-hunter`** (price feeds) streams until it sees a price move past its threshold — *signal
-  found, objective met* — or gives up after its patience window to stop burning budget on a flat market.
+- **`trend-hunter`** (price feeds) streams until it sees a price move past its threshold (*signal
+  found, objective met*), or gives up after its patience window to stop burning budget on a flat market.
 - **`job-runner`** (GPU telemetry) pays for the duration of a job but **aborts the instant the GPU
   crosses a safety temperature**, because paying for an overheating box isn't worth it.
 
-Those decisions are recorded and surfaced live on the `/impact` feed — e.g. *"signal: +0.45% move
-detected — objective met, gate closed"* or *"GPU 79°C > 78°C — aborted job, gate closed"*. The
+Those decisions are recorded and surfaced live on the `/impact` feed, e.g. *"signal: +0.45% move
+detected, objective met, gate closed"* or *"GPU 79C > 78C, aborted job, gate closed"*. The
 self-closing gate is a **decision**, not a timer.
 
 ---
@@ -96,7 +109,7 @@ transfer on `casper:casper-test`, gas paid by the facilitator's sponsored feePay
 moving from the agent's account to the payee. The live dashboard at **`/impact.html`** renders the
 same feed.
 
-### Don't trust our numbers — re-derive them from the chain
+### Don't trust our numbers, re-derive them from the chain
 
 ```bash
 npm run verify
@@ -104,33 +117,33 @@ npm run verify
 
 This reads **every X402 token transfer straight from the Casper ledger** (via cspr.cloud) and sums
 the payments to each provider, with zero trust in the Sluice server. It proves the feed never
-over-claims — the on-chain ledger is the source of truth:
+over-claims; the on-chain ledger is the source of truth:
 
 ```
 ON-CHAIN (re-derived from the Casper token ledger):
   NimbusGPU (GPU)      38 settlements · 0.66 X402
   Helios Feeds (ETH)   52 settlements · 0.31 X402
-  Lumen Markets (BTC) 203 settlements · 2.18 X402
-  TOTAL               293 settlements · 3.15 X402
-✅ VERIFIED — every settlement the feed claims is backed by a real on-chain transfer.
+  Lumen Markets (BTC) 211 settlements · 2.24 X402
+  TOTAL               301 settlements · 3.21 X402
+VERIFIED: every settlement the feed claims is backed by a real on-chain transfer.
 ```
 
 The stream *terms* and settlement *checkpoints* are also anchored on-chain in our deployed
-**`SluiceRegistry`** contract — so both the rules and the results live on Casper, not just our server.
+**`SluiceRegistry`** contract, so both the rules and the results live on Casper, not just our server.
 
 **A real multi-party economy.** Volume comes from **5 distinct funded agent wallets** streaming from a
-catalogue whose **3 streams each pay their own provider treasury** — so payments flow between
+catalogue whose **3 streams each pay their own provider treasury**, so payments flow between
 independent on-chain parties (`uniqueAgents = 5`, `uniqueProviders = 3`), not one wallet paying itself.
 Every tx is verifiable on cspr.live. The price streams carry a **real market feed** (live BTC/ETH spot
 from CoinGecko), so agents act on genuine moves; GPU telemetry is an honestly-labelled simulation.
-(Remaining honest note: this is Casper testnet — the payments, the multi-party settlement, and the
-price data are all real.)
+(Honest note: this is Casper testnet. The payments, the multi-party settlement, and the price data
+are all real.)
 
 ---
 
 ## Run it
 
-### MOCK demo — zero credentials
+### MOCK demo, zero credentials
 ```bash
 npm install
 cp .env.template .env            # MODE=mock by default
@@ -139,7 +152,8 @@ npm run server                   # http://localhost:4021  ·  dashboard at /impa
 AGENT_TICK_MS=300 AGENT_MAX_TICKS=12 npm run agent
 ```
 The streaming meter is decoupled from settlement behind a `SettlementProvider` interface, so MOCK
-mode runs the *exact same* streaming logic with simulated settlement — no creds, no chain.
+mode runs the *exact same* streaming logic with simulated settlement: no creds, no chain. MOCK and
+LIVE keep separate snapshot files, so simulated events never mix into the on-chain proof data.
 
 ### LIVE on Casper testnet
 Fill the LIVE section of `.env` (facilitator API key from cspr.cloud, funded testnet ed25519
@@ -149,11 +163,10 @@ MODE=live npm run server
 MODE=live CLIENT_PRIVATE_KEY_PATH=keys/agent.pem npm run agent
 ```
 Sustained load for the proof feed: `WORKERS=3 TICK_MS=2000 TICKS=12 bash scripts/volume.sh`.
-See [`docs/PLAN.md`](docs/PLAN.md) for the full owner setup checklist and
-[`HOSTING.md`](HOSTING.md) for putting the proof feed on a stable public URL.
+Multi-agent economy run: `ROUNDS=1 TICK_MS=2500 bash scripts/economy.sh`.
 
-> **Testnet tuning:** each on-chain settle finalizes in ~5–10s (testnet block time), so hold tick
-> cadence ≥ ~1.5s. `MAX_TICK_SECONDS` caps elapsed billing so a slow settle never over-bills.
+> **Testnet tuning:** each on-chain settle finalizes in ~5-10s (testnet block time), so hold tick
+> cadence at 1.5s or more. `MAX_TICK_SECONDS` caps elapsed billing so a slow settle never over-bills.
 
 ---
 
@@ -172,22 +185,23 @@ See [`docs/PLAN.md`](docs/PLAN.md) for the full owner setup checklist and
 
 | Path | What |
 |------|------|
-| `server/src/meter.ts` | **StreamingMeter** — the core primitive (elapsed-seconds tick billing + cutoff) |
+| `server/src/meter.ts` | **StreamingMeter**: the core primitive (elapsed-seconds tick billing + cutoff) |
 | `server/src/settlement.ts` | `SettlementProvider` interface + `MockSettlementProvider` |
 | `server/src/casper-live.ts` | LIVE Casper x402 wiring (paymentMiddleware + ExactCasperScheme + HTTPFacilitatorClient + DynamicPrice + onAfterSettle) |
 | `server/src/store.ts` | durable proof-feed store (periodic JSON snapshot) |
 | `server/src/index.ts` | Express resource server + session/tick routes + `/impact` |
 | `server/public/impact.html` | live proof-feed dashboard |
 | `agent/src/index.ts` | autonomous consuming agent (objective + budget, decides each tick) |
-| `agent/src/policy.ts` | agent policies — `trend-hunter`, `job-runner` (the agency) |
-| `scripts/volume.sh` | sustained-load runner (N concurrent agents → real settlements) |
+| `agent/src/policy.ts` | agent policies: `trend-hunter`, `job-runner` (the agency) |
+| `contracts/sluice_registry` | `SluiceRegistry` Odra contract (stream terms + checkpoint anchoring) |
+| `scripts/verify-onchain.ts` | trustless verifier (re-derives totals from the Casper ledger) |
+| `scripts/volume.sh`, `scripts/economy.sh` | sustained-load + multi-agent economy runners |
 | `shared/types.ts` | wire types |
-| `docs/PLAN.md` | architecture, plan, owner prerequisites |
 
 ## Tech
 
 `@make-software/casper-x402` (Casper `exact` scheme) · `@x402/express` + `@x402/core` + `@x402/fetch`
-· `casper-js-sdk` · hosted facilitator at `x402-facilitator.cspr.cloud` (sponsored gas via its
-feePayer). Node + tsx, no build step.
+· `casper-js-sdk` · Odra (both deployed contracts) · hosted facilitator at
+`x402-facilitator.cspr.cloud` (sponsored gas via its feePayer). Node + tsx, no build step.
 
 MIT.

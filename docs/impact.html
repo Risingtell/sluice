@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sluice — live settlement proof feed</title>
+    <title>Sluice: live settlement proof feed</title>
     <meta name="description" content="Every row is one real per-second x402 settlement on Casper. Click any tx to verify it on-chain." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -111,7 +111,7 @@
   <body>
     <header>
       <div class="wrap">
-        <div class="brand">💧 <b>Sluice</b></div>
+        <div class="brand"><svg class="drop" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M12 2.7c3.2 4.2 6.3 7.6 6.3 11.2a6.3 6.3 0 1 1-12.6 0C5.7 10.3 8.8 6.9 12 2.7z"/></svg> <b>Sluice</b></div>
         <nav>
           <a href="index.html">Home</a>
           <a href="roadmap.html">Roadmap</a>
@@ -127,14 +127,14 @@
         <div class="eyebrow">Live proof feed</div>
         <h1>Every row is one real <span class="grad">per-second settlement</span></h1>
         <p class="lede">
-          Autonomous agents paying by the second for a continuous stream — each tick a real CEP-18
+          Autonomous agents paying by the second for a continuous stream, each tick a real CEP-18
           <span class="mono" style="color:var(--dim)">transfer_with_authorization</span> on Casper.
           Click any transaction to verify it on-chain.
         </p>
         <div class="metarow">
-          <span id="netline">network —</span>
+          <span id="netline">network</span>
           <span>·</span>
-          <span>updated <span id="updated" class="mono">—</span></span>
+          <span>updated <span id="updated" class="mono">...</span></span>
           <span>·</span>
           <span>explorer <a href="https://testnet.cspr.live" target="_blank">testnet.cspr.live</a></span>
         </div>
@@ -144,8 +144,8 @@
 
       <div class="panel" style="margin-bottom: 18px">
         <div class="panel-head">
-          <h2>🧠 Autonomous agent decisions</h2>
-          <span class="hint">each agent closes its own gate — objective met, not worth it, or budget</span>
+          <h2>Autonomous agent decisions</h2>
+          <span class="hint">each agent closes its own gate: objective met, not worth it, or budget</span>
         </div>
         <div id="decisions" class="decisions"><div class="empty">waiting for decisions…</div></div>
       </div>
@@ -168,7 +168,7 @@
       </div>
 
       <footer>
-        Each settlement is independently verifiable on the Casper block explorer — Sluice records the
+        Each settlement is independently verifiable on the Casper block explorer. Sluice records the
         real on-chain tx hash for every tick. These totals are also anchored on-chain in our
         <a href="https://testnet.cspr.live/contract-package/a7cbd09cc9f99216141ede2dd063c57208e94ee0ca62780e3194beb05cf352cc" target="_blank">SluiceRegistry contract ↗</a>.
         Built for the Casper Agentic Buildathon 2026.
@@ -195,7 +195,7 @@
         const isLive = !s.mock;
         document.getElementById("mode-t").textContent = isLive ? "LIVE" : "MOCK";
         modeEl.className = "badge" + (isLive ? " live" : "");
-        document.getElementById("netline").textContent = "network " + (s.network || "—") + (s.static ? " · snapshot" : "");
+        document.getElementById("netline").textContent = "network " + (s.network || "?") + (s.static ? " · snapshot" : "");
         const upd = s.static && s.generatedAt ? new Date(s.generatedAt) : new Date();
         document.getElementById("updated").textContent = upd.toLocaleString([], { hour12: false });
 
@@ -214,7 +214,7 @@
         ).join("");
         lastSettlements = t.settlements;
 
-        // Autonomous decisions — agents closing their own gate, and why.
+        // Autonomous decisions: agents closing their own gate, and why.
         const decs = s.decisions || [];
         const decEl = document.getElementById("decisions");
         if (decEl) decEl.innerHTML = decs.length ? decs.map((d) => {
@@ -223,15 +223,15 @@
             <div class="dec-top"><span class="t-agent">${shortAgent(d.agent)}</span>
               <span class="pill ${d.streamId}">${streamLabel(d.streamId)}</span>
               <span class="dec-prov">${d.provider || ""}</span></div>
-            <div class="dec-obj">objective: ${d.objective || "—"}</div>
-            <div class="dec-reason">⟶ ${good ? "<b>" + d.closedReason + "</b>" : d.closedReason}</div>
+            <div class="dec-obj">objective: ${d.objective || "n/a"}</div>
+            <div class="dec-reason">→ ${good ? "<b>" + d.closedReason + "</b>" : d.closedReason}</div>
             <div class="dec-meta">${d.ticks} ticks · ${cspr(d.totalPaid)} ${t.asset}</div>
           </div>`;
         }).join("") : '<div class="empty">no autonomous closes yet</div>';
 
         const rows = (s.recent || []);
         if (!rows.length) {
-          document.getElementById("rows").innerHTML = `<tr><td colspan="7" class="empty">No settlements yet — run an agent to start the meter.</td></tr>`;
+          document.getElementById("rows").innerHTML = `<tr><td colspan="7" class="empty">No settlements yet. Run an agent to start the meter.</td></tr>`;
           return;
         }
         document.getElementById("rows").innerHTML = rows.map((e) => {
@@ -243,7 +243,7 @@
             <td class="t-time">${fmtTime(e.settledAt)}</td>
             <td class="t-agent">${shortAgent(e.agent)}</td>
             <td><span class="pill ${e.streamId}">${streamLabel(e.streamId)}</span></td>
-            <td class="t-prov" title="${e.payTo || ""}">${e.provider || "—"}</td>
+            <td class="t-prov" title="${e.payTo || ""}">${e.provider || "n/a"}</td>
             <td class="t-sec">${Number(e.seconds).toFixed(1)}s</td>
             <td class="t-amt">${cspr(e.amount)} ${e.asset}</td>
             <td class="t-tx">${tx}</td>
