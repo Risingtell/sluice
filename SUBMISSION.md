@@ -58,11 +58,11 @@ economy:
 
 | Metric | Value |
 |---|---|
-| On-chain settlements | **275** |
+| On-chain settlements | **283** |
 | **Distinct paying agents** | **5** (each its own funded Casper wallet) |
 | **Distinct providers paid** | **3** (each its own treasury) |
-| **Autonomous gate-closures recorded** | **12** (objective met / budget / job abort) |
-| Seconds streamed & billed | **2,197 s** |
+| **Autonomous gate-closures recorded** | **16** (objective met / budget / job abort) |
+| Seconds streamed & billed | **2,258 s** |
 | Value transferred | **3.0 X402** (CEP-18) |
 | Streams metered | BTC/USD · ETH/USD · GPU telemetry |
 
@@ -97,12 +97,12 @@ Node + tsx, no build step.
 
 **On-chain footprint (Casper testnet):**
 - **CEP-18 `X402` token contract — deployed by us** (Odra; package `658bb84b…1300017e`). Every one of
-  the 275 settlements is a real `transfer_with_authorization` against this contract — our own
+  the 283 settlements is a real `transfer_with_authorization` against this contract — our own
   functional, deployed Casper contract.
 - **`SluiceRegistry` contract — deployed by us** (Odra; package
   `a7cbd09cc9f99216141ede2dd063c57208e94ee0ca62780e3194beb05cf352cc`). Our own application contract:
   it records each stream's terms and **anchors the cumulative settlement checkpoints on-chain**
-  (btc-usd 100, eth-usd 93, gpu-telemetry 82 = 275), so the public `/impact` totals are verifiable
+  (btc-usd 108, eth-usd 93, gpu-telemetry 82 = 283), so the public `/impact` totals are verifiable
   against Casper state — trust-minimised, not just "trust our server." Source in
   `contracts/sluice_registry`, one-command deploy/sync via `scripts/registry.ts`. Verify:
   https://testnet.cspr.live/contract-package/a7cbd09cc9f99216141ede2dd063c57208e94ee0ca62780e3194beb05cf352cc
@@ -121,8 +121,8 @@ LIVE setup and stable hosting: see [`README.md`](README.md) and [`HOSTING.md`](H
 
 Sluice is built to be a **real product**, not a hackathon throwaway.
 
-**Traction (already live, on Casper testnet):** 275 real settlements · 5 autonomous agents · 3
-providers · 12 recorded agentic decisions · real CoinGecko price feed · public proof page anyone can
+**Traction (already live, on Casper testnet):** 283 real settlements · 5 autonomous agents · 3
+providers · 16 recorded agentic decisions · real CoinGecko price feed · public proof page anyone can
 verify. This is a working system today, not a slide.
 
 **Roadmap:**

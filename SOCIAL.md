@@ -1,7 +1,7 @@
 # Sluice — social & milestone drafts
 
 Ready-to-post copy for build-in-public updates. All numbers are the honest, on-chain-verified
-figures (275 settlements / 5 agents / 3 providers; verifier re-derives 293 ≥ 275 from the Casper
+figures (283 settlements / 5 agents / 3 providers; verifier re-derives 301 ≥ 283 from the Casper
 ledger, so the feed never over-claims).
 
 - X handle: **[@agentsluice](https://x.com/agentsluice)**
@@ -19,7 +19,7 @@ ledger, so the feed never over-claims).
 Details (249 chars):
 
 ```
-Live on Casper testnet: 275 on-chain settlements · 5 autonomous agents · 3 providers · 2 contracts · trustless verifier (chain 293 ≥ 275). Next: @sluice/x402 SDK, harden the meter, then Casper mainnet + open provider network. x.com/agentsluice
+Live on Casper testnet: 283 on-chain settlements · 5 autonomous agents · 3 providers · 2 contracts · trustless verifier (chain 301 ≥ 283). Next: @sluice/x402 SDK, harden the meter, then Casper mainnet + open provider network. x.com/agentsluice
 ```
 
 Related links:
@@ -36,9 +36,9 @@ Related links:
 ```
 SHIPPED (Qualification Round):
 • Per-second streaming x402 meter, live on Casper testnet
-• 275 real on-chain settlements · 5 independent autonomous agents · 3 providers
+• 283 real on-chain settlements · 5 independent autonomous agents · 3 providers
 • Two deployed Casper contracts: CEP-18 X402 token (658bb84b…) + SluiceRegistry (a7cbd09c…)
-• Trustless on-chain verifier — every published number re-derived straight from the Casper ledger, so the feed can never over-claim (chain shows 293 ≥ the 275 we report)
+• Trustless on-chain verifier — every published number re-derived straight from the Casper ledger, so the feed can never over-claim (chain shows 301 ≥ the 283 we report)
 • Real CoinGecko price feed driving the trading-agent streams
 
 NOW → FINAL ROUND:
@@ -69,7 +69,7 @@ Here's what's shipped and what's next 👇
 ```
 ✅ Shipped for the Casper Agentic Buildathon:
 • Per-second streaming x402 meter, live on testnet
-• 275 real on-chain settlements · 5 autonomous agents · 3 providers
+• 283 real on-chain settlements · 5 autonomous agents · 3 providers
 • 2 deployed contracts (CEP-18 token + SluiceRegistry)
 • Trustless verifier — re-derive every number from the chain
 ```

@@ -83,7 +83,10 @@ export class Store {
       totalPaid += BigInt(e.amount);
       secondsStreamed += e.seconds;
       agents.add(e.agent);
-      providers.add(e.payTo);
+      // Count distinct provider BUSINESSES (resolved from the stream catalogue), not payout
+      // addresses — a provider that rotated its treasury address is still one provider, and this
+      // keeps the stat consistent with the Provider column on the dashboard.
+      providers.add(this.streams.get(e.streamId)?.provider ?? e.payTo);
     }
     return { settlements: this.events.length, totalPaid, uniqueAgents: agents.size, uniqueProviders: providers.size, secondsStreamed };
   }

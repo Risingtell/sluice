@@ -85,7 +85,7 @@ Every settlement Sluice has ever made is recorded with its real Casper transacti
 ```bash
 # top-line cumulative proof
 curl -s http://localhost:4021/impact | jq '.totals'
-# => { "settlements": 275, "uniqueAgents": 5, "uniqueProviders": 3, "secondsStreamed": 2197, ... }
+# => { "settlements": 283, "uniqueAgents": 5, "uniqueProviders": 3, "secondsStreamed": 2258, ... }
 
 # pull any recent settlement and open it on the block explorer
 curl -s http://localhost:4021/impact | jq '.recent[0] | {txHash, explorerUrl, amount, seconds}'

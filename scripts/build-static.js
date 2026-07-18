@@ -24,11 +24,14 @@ let totalPaid = 0n;
 let secondsStreamed = 0;
 const agents = new Set();
 const providers = new Set();
+// Same provider-name mapping the server's stream catalogue uses — count distinct provider
+// businesses, not payout addresses (an address rotation is still the same provider).
+const PROVIDER_BY_STREAM = { "btc-usd": "Lumen Markets", "eth-usd": "Helios Feeds", "gpu-telemetry": "NimbusGPU" };
 for (const e of events) {
   totalPaid += BigInt(e.amount || "0");
   secondsStreamed += e.seconds || 0;
   agents.add(e.agent);
-  providers.add(e.payTo);
+  providers.add(PROVIDER_BY_STREAM[e.streamId] ?? e.payTo);
 }
 const snapshot = {
   network: NETWORK,
