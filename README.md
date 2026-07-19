@@ -71,6 +71,8 @@ the capital-efficient, autonomous behaviour Casper's agent-economy vision is bui
 | Per-provider routing | `DynamicPayTo`: each stream's ticks settle to that provider's own Casper account |
 | On-chain anchoring of terms + totals | Our own deployed `SluiceRegistry` contract (Odra), package `a7cbd09c...` |
 | Trustless audit | `npm run verify` re-derives every settlement from the Casper token ledger via cspr.cloud |
+| Any LLM agent as the buyer | `sluice-mcp` MCP server: an MCP-capable agent discovers, rents, and pays for streams itself |
+| Build your own consumer | `@sluice/x402` SDK (`sdk/`): budget-guarded autonomous streaming loop in a few lines |
 
 ---
 
@@ -171,6 +173,26 @@ Multi-agent economy run: `ROUNDS=1 TICK_MS=2500 bash scripts/economy.sh`.
 
 ---
 
+## Consume Sluice from your own agent
+
+**SDK** ([`sdk/`](sdk/README.md)): the whole rent-and-pay loop in a few lines, with a budget guard
+and your own `decide()` policy as the agency. Runnable example:
+
+```bash
+npm run server                       # terminal 1 (mock, zero creds)
+npx tsx examples/rent-a-stream.ts    # terminal 2: an SDK agent rents btc-usd and self-closes
+```
+
+**MCP server** ([`mcp/`](mcp/README.md)): exposes the meter to any MCP-capable AI agent (Claude
+included) as tools: `list_streams`, `open_session`, `pay_tick`, `close_session`, `get_proof`. The
+LLM is the buyer; in live mode each `pay_tick` returns the real on-chain tx hash.
+
+```bash
+claude mcp add sluice -- npx tsx mcp/server.ts
+```
+
+---
+
 ## HTTP API
 
 | Method & path | What |
@@ -194,6 +216,9 @@ Multi-agent economy run: `ROUNDS=1 TICK_MS=2500 bash scripts/economy.sh`.
 | `server/public/impact.html` | live proof-feed dashboard |
 | `agent/src/index.ts` | autonomous consuming agent (objective + budget, decides each tick) |
 | `agent/src/policy.ts` | agent policies: `trend-hunter`, `job-runner` (the agency) |
+| `sdk/` | `@sluice/x402` client SDK (budget-guarded autonomous streaming loop) |
+| `mcp/` | `sluice-mcp` MCP server (any MCP-capable LLM agent as the buyer) |
+| `server/src/demo.ts`, `server/public/demo.html` | judge-facing live demo console |
 | `contracts/sluice_registry` | `SluiceRegistry` Odra contract (stream terms + checkpoint anchoring) |
 | `scripts/verify-onchain.ts` | trustless verifier (re-derives totals from the Casper ledger) |
 | `scripts/volume.sh`, `scripts/economy.sh` | sustained-load + multi-agent economy runners |

@@ -65,6 +65,18 @@ has ever produced is in the feed you verified in step 2:
 - Demo video: https://youtu.be/xIFQ-KtzsBw
 - Live wiring: `server/src/casper-live.ts` (server side), `agent/src/index.ts` (agent side)
 
+## 5. Consume it from your own agent (optional, 2 minutes)
+
+With the mock server from step 3 still running:
+
+```bash
+npx tsx examples/rent-a-stream.ts    # an SDK agent rents btc-usd, pays per tick, self-closes
+```
+
+And Sluice speaks MCP: `npx tsx mcp/server.ts` exposes `list_streams` / `open_session` /
+`pay_tick` / `close_session` / `get_proof` to any MCP-capable AI agent, so an LLM can rent and
+pay for a stream itself. See [`sdk/README.md`](sdk/README.md) and [`mcp/README.md`](mcp/README.md).
+
 ## What each step proved
 
 | Step | Claim verified |
