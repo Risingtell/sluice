@@ -56,6 +56,24 @@ export class Store {
   putSession(s: Session): void {
     this.sessions.set(s.id, s);
     this.dirty = true;
+    this.pruneSessions();
+  }
+
+  /**
+   * Public-host guard: an unauthenticated caller can open sessions freely (opening is free; only
+   * ticking costs), so cap retained sessions. Settled history lives in `events`, which is never
+   * pruned, so the proof feed loses nothing; we only drop the oldest finished session records.
+   */
+  private pruneSessions(): void {
+    const MAX = 1500;
+    if (this.sessions.size <= MAX) return;
+    const finished = [...this.sessions.values()]
+      .filter((s) => s.status !== "active")
+      .sort((a, b) => a.startedAt - b.startedAt);
+    for (const s of finished) {
+      if (this.sessions.size <= 1000) break;
+      this.sessions.delete(s.id);
+    }
   }
 
   addEvent(e: SettlementEvent): void {

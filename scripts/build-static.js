@@ -68,13 +68,22 @@ const snapshot = {
 writeFileSync(`${OUT}/proof.json`, JSON.stringify(snapshot));
 console.log(`proof.json: ${snapshot.totals.settlements} settlements, ${snapshot.totals.secondsStreamed}s, ${agents.size} agent(s)`);
 
-// 2) Copy the two pages and rewrite server paths → static relative paths.
+// 2) Copy the pages and rewrite server paths → static relative paths.
+// The demo console needs the live server, so on the static mirror its links either point at the
+// deployed demo host (DEMO_URL, no trailing slash) or are removed entirely. Never a dead link.
+const DEMO_URL = (process.env.DEMO_URL || "").replace(/\/$/, "");
 function staticize(html) {
-  return html
+  html = html
     .replaceAll('fetch("/impact")', 'fetch("./proof.json")')
     .replaceAll('href="/index.html"', 'href="index.html"')
     .replaceAll('href="/impact.html"', 'href="impact.html"')
     .replaceAll('href="/roadmap.html"', 'href="roadmap.html"');
+  if (DEMO_URL) {
+    html = html.replaceAll('href="/demo.html" data-demo-link', `href="${DEMO_URL}/demo.html" data-demo-link`);
+  } else {
+    html = html.replace(/[ \t]*<a [^>]*data-demo-link[^>]*>.*?<\/a>\n?/g, "");
+  }
+  return html;
 }
 for (const page of ["index.html", "impact.html", "roadmap.html"]) {
   const src = `server/public/${page}`;

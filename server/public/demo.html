@@ -149,13 +149,22 @@ Each line below is produced by the actual agent process, not a recording.</span>
       }
       const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
-      async function refreshStatus() {
+      async function refreshStatus(attempt) {
+        attempt = attempt || 0;
         try {
           const s = await fetch("/demo/status").then((r) => r.json());
           statusEl.textContent = s.liveReady
             ? s.liveSessionsLeftToday + " live on-chain session(s) left today"
             : "simulation mode (live settlement offline right now)";
-        } catch { statusEl.textContent = "server unreachable"; }
+        } catch {
+          // Free-tier hosts sleep when idle; the first request wakes them (up to ~60s).
+          if (attempt < 6) {
+            statusEl.textContent = "waking the server (free hosting sleeps when idle, up to a minute)...";
+            setTimeout(() => refreshStatus(attempt + 1), 10000);
+          } else {
+            statusEl.textContent = "server unreachable";
+          }
+        }
       }
       refreshStatus();
 
