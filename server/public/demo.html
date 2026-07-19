@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sluice: live demo console</title>
+    <meta name="description" content="Run a real autonomous agent session: per-second x402 payments settled on Casper testnet, live in front of you." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0a0a0a; --panel: #141414; --line: #262626; --ink: #f5f5f5;
+        --dim: #a3a3a3; --faint: #6b6b6b; --teal: #ffd400; --teal2: #ffe27a; --green: #6ee7a8; --red: #f87171;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased;
+        font: 16px/1.6 "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+      .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+      a { color: var(--teal2); }
+      .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+      header { border-bottom: 1px solid var(--line); position: sticky; top: 0;
+        background: rgba(7,11,17,.82); backdrop-filter: blur(8px); z-index: 5; }
+      header .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+      .brand { font-weight: 700; font-size: 19px; letter-spacing: -.01em; text-decoration: none; color: var(--ink); }
+      .brand b { color: var(--teal); }
+      nav a { color: var(--dim); text-decoration: none; margin-left: 22px; font-size: 14px; }
+      nav a:hover, nav a.on { color: var(--ink); }
+
+      .hero { padding: 54px 0 8px; }
+      .pill { display: inline-block; font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+        color: var(--teal); border: 1px solid #5c4d00; background: #1a1600; padding: 4px 12px; border-radius: 999px; }
+      h1 { font-size: 40px; line-height: 1.08; letter-spacing: -.02em; margin: 16px 0 12px; }
+      h1 .grad { background: linear-gradient(100deg, var(--teal), var(--teal2) 60%, #e9d8a6);
+        -webkit-background-clip: text; background-clip: text; color: transparent; }
+      .lede { font-size: 17.5px; color: var(--dim); max-width: 700px; }
+
+      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; margin: 22px 0; }
+      .controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+      select {
+        background: #101010; color: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+        padding: 11px 14px; font: inherit; font-size: 15px;
+      }
+      .btn { display: inline-block; padding: 12px 22px; border-radius: 10px; font-weight: 600; cursor: pointer;
+        font: inherit; font-size: 15px; border: 0; }
+      .btn.primary { background: var(--teal); color: #1a1500; }
+      .btn.primary:disabled { background: #4d4200; color: #8a7a20; cursor: not-allowed; }
+      .status { font-size: 13.5px; color: var(--dim); margin-left: auto; }
+      .badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+        padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); }
+      .badge.live { background: #10331f; color: var(--green); border-color: #1f5e39; }
+      .badge.sim { background: #1a1600; color: var(--teal); border-color: #5c4d00; }
+
+      .console {
+        background: #0d0d0d; border: 1px solid var(--line); border-radius: 12px; padding: 16px;
+        font-family: "JetBrains Mono", monospace; font-size: 13px; line-height: 1.75;
+        height: 420px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+      }
+      .console .t { color: var(--ink); }
+      .console .tx a { color: var(--teal2); }
+      .console .d { color: var(--dim); }
+      .console .hint { color: var(--faint); }
+      .console .err { color: var(--red); }
+      .row-new { animation: flash 1.2s ease-out; }
+      @keyframes flash { 0% { background: #2a2400; } 100% { background: transparent; } }
+
+      .explain { font-size: 14.5px; color: var(--dim); }
+      .explain code { font-family: "JetBrains Mono", monospace; font-size: 12.5px; color: var(--teal2);
+        background: #16160a; border: 1px solid #33330f; border-radius: 5px; padding: 1px 6px; }
+      footer { border-top: 1px solid var(--line); padding: 32px 0; margin-top: 44px; color: var(--dim); font-size: 14px; }
+      @media (max-width: 720px) { h1 { font-size: 30px; } .status { margin-left: 0; width: 100%; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <a class="brand" href="/index.html"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M12 2.7c3.2 4.2 6.3 7.6 6.3 11.2a6.3 6.3 0 1 1-12.6 0C5.7 10.3 8.8 6.9 12 2.7z"/></svg> <b>Sluice</b></a>
+        <nav>
+          <a href="/index.html">Home</a>
+          <a href="/impact.html">Live proof</a>
+          <a href="/demo.html" class="on">Demo</a>
+          <a href="/roadmap.html">Roadmap</a>
+          <a href="https://github.com/Risingtell/sluice">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <section class="hero">
+        <span class="pill">Interactive: runs the real thing</span>
+        <h1>Run an autonomous agent, <span class="grad">watch it pay per second</span>.</h1>
+        <p class="lede">
+          One click starts a real Sluice agent session on this server. The agent opens a stream,
+          pays each tick with an x402 settlement, evaluates the data against its objective, and
+          closes the gate on its own. When live budget is available, every tick you see lands as a
+          real CEP-18 transfer on Casper testnet with a clickable explorer link.
+        </p>
+      </section>
+
+      <div class="panel">
+        <div class="controls">
+          <select id="stream" aria-label="Stream">
+            <option value="btc-usd">BTC/USD live price (trend-hunter agent)</option>
+            <option value="eth-usd">ETH/USD live price (trend-hunter agent)</option>
+            <option value="gpu-telemetry">GPU telemetry (job-runner agent)</option>
+          </select>
+          <button class="btn primary" id="run">Run autonomous agent</button>
+          <span class="badge" id="modeBadge">idle</span>
+          <span class="status" id="status">checking server...</span>
+        </div>
+      </div>
+
+      <div class="console" id="console"><span class="hint">Press "Run autonomous agent" to start a session.
+Each line below is produced by the actual agent process, not a recording.</span></div>
+
+      <div class="panel explain">
+        <b>What you are watching.</b> The agent signs an EIP-712 <code>transfer_with_authorization</code>
+        for every tick; the hosted Casper x402 facilitator verifies it and settles a real CEP-18
+        transfer on <code>casper:casper-test</code> (the facilitator pays the gas). Tick lines carry
+        the real transaction hash; open any of them on testnet.cspr.live. Live on-chain sessions are
+        budgeted per day because the facilitator quota is shared; when the budget is spent the same
+        meter and policy code runs with simulated settlement, and this page says so plainly.
+        Cumulative history: <a href="/impact.html">live proof feed</a>. Independent audit:
+        <code>npm run verify</code> re-derives every number from the Casper ledger.
+      </div>
+    </div>
+
+    <footer>
+      <div class="wrap">
+        Sluice: streaming x402 meter for the agent economy. Casper Agentic Buildathon 2026.
+        <a href="https://github.com/Risingtell/sluice">Source</a> ·
+        <a href="https://risingtell.github.io/sluice/">Proof site</a>
+      </div>
+    </footer>
+
+    <script>
+      const consoleEl = document.getElementById("console");
+      const runBtn = document.getElementById("run");
+      const statusEl = document.getElementById("status");
+      const modeBadge = document.getElementById("modeBadge");
+
+      function line(html, cls) {
+        const div = document.createElement("div");
+        div.className = (cls || "d") + " row-new";
+        div.innerHTML = html;
+        consoleEl.appendChild(div);
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+      }
+      const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+      async function refreshStatus() {
+        try {
+          const s = await fetch("/demo/status").then((r) => r.json());
+          statusEl.textContent = s.liveReady
+            ? s.liveSessionsLeftToday + " live on-chain session(s) left today"
+            : "simulation mode (live settlement offline right now)";
+        } catch { statusEl.textContent = "server unreachable"; }
+      }
+      refreshStatus();
+
+      runBtn.addEventListener("click", async () => {
+        runBtn.disabled = true;
+        modeBadge.textContent = "starting";
+        modeBadge.className = "badge";
+        consoleEl.innerHTML = "";
+        const stream = document.getElementById("stream").value;
+        try {
+          const res = await fetch("/demo/run?stream=" + encodeURIComponent(stream), { method: "POST" });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            line("could not start: " + esc(err.error || res.statusText), "err");
+            runBtn.disabled = false;
+            return;
+          }
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = "";
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            let idx;
+            while ((idx = buf.indexOf("\n\n")) >= 0) {
+              const block = buf.slice(0, idx); buf = buf.slice(idx + 2);
+              const ev = /^event: (.+)$/m.exec(block);
+              const dt = /^data: (.+)$/m.exec(block);
+              if (!ev || !dt) continue;
+              const data = JSON.parse(dt[1]);
+              if (ev[1] === "mode") {
+                modeBadge.textContent = data.live ? "LIVE on-chain" : "simulation";
+                modeBadge.className = "badge " + (data.live ? "live" : "sim");
+                line(esc(data.note), "hint");
+              } else if (ev[1] === "tick") {
+                if (data.explorerUrl) {
+                  line('<span class="t">' + esc(data.line) + '</span> <span class="tx"><a href="' + data.explorerUrl + '" target="_blank" rel="noopener">open on cspr.live</a></span>', "t");
+                } else {
+                  line(esc(data.line), "t");
+                }
+              } else if (ev[1] === "log") {
+                line(esc(data.line), "d");
+              } else if (ev[1] === "error") {
+                line("error: " + esc(data.message), "err");
+              } else if (ev[1] === "done") {
+                line("session complete.", "hint");
+              }
+            }
+          }
+        } catch (e) {
+          line("connection lost: " + esc(String(e)), "err");
+        }
+        runBtn.disabled = false;
+        refreshStatus();
+      });
+    </script>
+  </body>
+</html>

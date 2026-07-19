@@ -8,7 +8,7 @@ Built for the [Casper Agentic Buildathon 2026](https://dorahacks.io/hackathon/ca
 **Demo video:** https://youtu.be/xIFQ-KtzsBw · **Live proof:** https://risingtell.github.io/sluice/ ·
 **Judge quickstart:** [JUDGE-QUICKSTART.md](JUDGE-QUICKSTART.md)
 
-> **It's live, and it's a real economy.** Sluice has settled **283 real per-second payments on
+> **It's live, and it's a real economy.** Sluice has settled **289 real per-second payments on
 > `casper:casper-test`** across **5 independent autonomous agents**, each with its own funded Casper
 > wallet, paying **3 distinct providers**. Every tick is a CEP-18 `transfer_with_authorization`
 > signed by the agent's own key and finalized by the x402 facilitator, clickable through to
@@ -98,7 +98,7 @@ Every settlement Sluice has ever made is recorded with its real Casper transacti
 ```bash
 # top-line cumulative proof
 curl -s http://localhost:4021/impact | jq '.totals'
-# => { "settlements": 283, "uniqueAgents": 5, "uniqueProviders": 3, "secondsStreamed": 2258, ... }
+# => { "settlements": 289, "uniqueAgents": 5, "uniqueProviders": 3, "secondsStreamed": 2310, ... }
 
 # pull any recent settlement and open it on the block explorer
 curl -s http://localhost:4021/impact | jq '.recent[0] | {txHash, explorerUrl, amount, seconds}'
@@ -123,8 +123,8 @@ over-claims; the on-chain ledger is the source of truth:
 ON-CHAIN (re-derived from the Casper token ledger):
   NimbusGPU (GPU)      38 settlements · 0.66 X402
   Helios Feeds (ETH)   52 settlements · 0.31 X402
-  Lumen Markets (BTC) 211 settlements · 2.24 X402
-  TOTAL               301 settlements · 3.21 X402
+  Lumen Markets (BTC) 217 settlements · 2.29 X402
+  TOTAL               307 settlements · 3.26 X402
 VERIFIED: every settlement the feed claims is backed by a real on-chain transfer.
 ```
 

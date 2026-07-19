@@ -27,7 +27,7 @@ npm run verify
 This re-derives the totals **from the Casper token ledger itself**, independent of our server and
 our feed: it reads every X402 transfer, counts agent-to-provider payments, and compares against
 what the public feed claims. Expected result: the chain shows **at least** as many settlements as
-the feed claims (chain 301+, feed 283). Sluice never over-claims.
+the feed claims (currently chain 307, feed 289). Sluice never over-claims.
 
 With no key it verifies against the committed ledger snapshot in `data/onchain-actions.json`
 (the same raw data, refreshed at every keyed run). To re-pull the ledger live, set

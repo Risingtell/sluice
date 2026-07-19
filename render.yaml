@@ -1,0 +1,31 @@
+# Render Blueprint: deploys the Sluice live demo server (judge-facing interactive console).
+# Secrets (FACILITATOR_API_KEY, AGENT_KEY_PEM) are set in the Render dashboard, never committed.
+services:
+  - type: web
+    name: sluice
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: MODE
+        value: live
+      - key: ASSET_NAME
+        value: Casper X402 Token
+      - key: ASSET_PACKAGE
+        value: 658bb84ba4aa82ffc98a55e0f8c447103dd9d4a28fb32fca3363aa0e1300017e
+      - key: CAIP2_CHAIN_ID
+        value: casper:casper-test
+      - key: CLIENT_PRIVATE_KEY_PATH
+        value: keys/agent.pem
+      - key: CLIENT_KEY_ALGO
+        value: ed25519
+      - key: PAYEE_ADDRESS
+        value: 00b76372880f98f0ddaf31257e32fb5b1b787a7bd9d20642dfac63b32ff7367a12
+      - key: DEMO_LIVE_SESSIONS_PER_DAY
+        value: "8"
+      - key: FACILITATOR_API_KEY
+        sync: false
+      - key: AGENT_KEY_PEM
+        sync: false

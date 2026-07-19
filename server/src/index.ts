@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { loadConfig, STREAMS } from "./config.ts";
@@ -7,14 +8,53 @@ import { Store } from "./store.ts";
 import { StreamingMeter, MeterError } from "./meter.ts";
 import { MockSettlementProvider, type SettlementProvider } from "./settlement.ts";
 import { mountCasperLive } from "./casper-live.ts";
+import { mountDemo, seedSnapshot } from "./demo.ts";
 import { nextChunk } from "./feed.ts";
 import type { ImpactSnapshot, OpenSessionRequest, TickResponse } from "../../shared/types.ts";
 
 const cfg = loadConfig();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// Cloud-host bootstrap: materialize the agent signing key from an env var (fresh containers have
+// no keys/ directory), and seed the proof snapshot from the committed real history.
+const keyPath = process.env.CLIENT_PRIVATE_KEY_PATH || "keys/agent.pem";
+if (process.env.AGENT_KEY_PEM && !existsSync(keyPath)) {
+  mkdirSync(dirname(keyPath), { recursive: true });
+  writeFileSync(keyPath, process.env.AGENT_KEY_PEM);
+  console.log(`   materialized agent key at ${keyPath}`);
+}
+seedSnapshot(cfg.snapshotPath);
+
 const streams = new Map(STREAMS.map((s) => [s.id, s]));
 const store = new Store(streams, cfg.snapshotPath);
+
+/**
+ * LIVE preflight: confirm the facilitator is reachable and within quota BEFORE mounting the
+ * payment middleware. Without this, quota exhaustion (~300 calls/day, shared) makes the server
+ * crash at init; a public demo must degrade gracefully instead.
+ */
+async function facilitatorReady(): Promise<boolean> {
+  if (cfg.mode !== "live") return false;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch(`${cfg.facilitatorUrl}/supported`, {
+      headers: { Authorization: cfg.facilitatorApiKey },
+      signal: ctrl.signal,
+    });
+    clearTimeout(t);
+    if (!res.ok) {
+      console.warn(`   facilitator preflight: HTTP ${res.status}; starting degraded (no live settlement)`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn(`   facilitator preflight failed (${(err as Error).message}); starting degraded`);
+    return false;
+  }
+}
+
+const liveReady = await facilitatorReady();
 
 const meter = new StreamingMeter(store, { payTo: cfg.payTo, maxTickSeconds: cfg.maxTickSeconds });
 
@@ -27,7 +67,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", mode: cfg.mode, network: cfg.network });
+  res.json({ status: "ok", mode: cfg.mode, network: cfg.network, liveSettlement: cfg.mode !== "live" || liveReady });
 });
 
 app.get("/streams", (_req, res) => {
@@ -51,8 +91,14 @@ app.post("/sessions", (req, res) => {
 // Settle one tick and receive the next chunk: POST /tick?session=<id>.
 // LIVE mode wraps this with @x402/express paymentMiddleware (see mountCasperLive); each tick is a
 // real on-chain CEP-18 settlement. MOCK mode settles synthetically here.
-if (cfg.mode === "live") {
+if (cfg.mode === "live" && liveReady) {
   mountCasperLive(app, cfg, meter);
+} else if (cfg.mode === "live") {
+  // Degraded live mode: never settle synthetically into the on-chain proof store. The /demo
+  // endpoints still work (simulation runs against a separate store); paid ticks wait for quota.
+  app.post("/tick", (_req, res) => {
+    res.status(503).json({ error: "live settlement temporarily unavailable (facilitator quota); try the /demo console" });
+  });
 } else {
   app.post("/tick", async (req, res) => {
     const sessionId = (req.query.session as string) || "";
@@ -110,6 +156,9 @@ app.get("/impact", (_req, res) => {
   };
   res.json(snapshot);
 });
+
+// Judge-facing demo console: one click runs a real (or clearly-labelled simulated) agent session.
+mountDemo(app, cfg, cfg.mode === "live" && liveReady);
 
 app.use(express.static(join(__dirname, "..", "public")));
 
