@@ -4,6 +4,15 @@ Sluice's core claim: **real per-second streaming payments, settled on-chain via 
 autonomous agents that close their own stream.** Here is the fastest path to verify each part
 yourself. Nothing below needs an account, a key, or any setup beyond Node 20+.
 
+## 0. Run the real thing yourself (90 seconds, browser only)
+
+Open **https://sluice-kff3.onrender.com/demo.html** and press **Run autonomous agent**.
+A real agent session runs server-side and streams to your screen: each tick is an x402
+settlement, and while the daily live budget lasts, every tick lands as a real CEP-18 transfer
+on Casper testnet with a clickable cspr.live link, in front of you. When the live budget is
+spent the page says so plainly and runs the same meter and policy code with simulated
+settlement. (Free hosting: the first request may take up to a minute to wake the server.)
+
 ## 1. The proof feed is real (60 seconds, browser only)
 
 - Open the live proof page: **https://risingtell.github.io/sluice/impact.html**
