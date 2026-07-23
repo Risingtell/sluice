@@ -6,7 +6,7 @@ agent stops consuming.** No subscriptions, no pre-bought credits.
 Built for the [Casper Agentic Buildathon 2026](https://dorahacks.io/hackathon/casper-agentic-buildathon).
 
 **Live demo (run it yourself):** https://sluice-kff3.onrender.com/demo.html ·
-**Demo video:** https://youtu.be/xIFQ-KtzsBw · **Live proof:** https://risingtell.github.io/sluice/ ·
+**Demo video:** https://youtu.be/C_0LxnopK00 · **Live proof:** https://risingtell.github.io/sluice/ ·
 **Judge quickstart:** [JUDGE-QUICKSTART.md](JUDGE-QUICKSTART.md)
 
 > **It's live, and it's a real economy.** Sluice has settled **289 real per-second payments on
