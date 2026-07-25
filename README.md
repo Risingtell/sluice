@@ -181,7 +181,7 @@ hash proves nothing on its own.
 npm test
 ```
 
-11 tests, named after the claim each one defends. Five of them assert against the real committed
+13 tests, named after the claim each one defends. Seven of them assert against the real committed
 on-chain ledger snapshot, so if the published numbers ever drift above what Casper actually shows,
 the suite fails instead of the over-claim shipping.
 

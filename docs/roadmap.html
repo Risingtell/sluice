@@ -118,7 +118,7 @@
               <li><b>Interactive live demo console</b>: one click runs a real agent session, settling on-chain in front of you</li>
               <li><b><code>@sluice/x402</code> client SDK + <code>sluice-mcp</code> MCP server</b>: any agent, including an LLM over MCP, can rent and pay for a stream</li>
               <li><b>301 real on-chain settlements</b> · 5 autonomous agents · 3 providers · 17 recorded agentic decisions</li>
-              <li><b>Two deployed Casper contracts</b>: a CEP-18 X402 token and the <code>SluiceRegistry</code> anchoring stream terms + settlement checkpoints</li>
+              <li><b>Three deployed Casper contracts</b>: on testnet a CEP-18 X402 token and the <code>SluiceRegistry</code> anchoring stream terms + settlement checkpoints, plus our own CEP-18 token on mainnet</li>
               <li><b>Trustless on-chain verifier</b>: every published number is re-derived straight from the Casper ledger, so the feed can never over-claim</li>
               <li><b>Real CoinGecko price feed</b> driving the trading-agent streams</li>
             </ul>
@@ -137,13 +137,24 @@
           </div>
         </div>
 
-        <div class="phase next">
-          <div class="when">Q3 2026 · mainnet-ready now</div>
-          <h2>Mainnet + design partners <span class="badge wip">Path open today</span></h2>
+        <div class="phase shipped">
+          <div class="when">Final Round · shipped</div>
+          <h2>Mainnet <span class="badge done">Shipped</span></h2>
           <div class="card">
             <ul class="feat">
-              <li><b>Casper's x402 facilitator is already live on mainnet</b> (shipped June 4, 2026 with the Casper AI Toolkit). Sluice speaks the exact same facilitator interface, so going live is a <code>FACILITATOR_URL</code> change and a funded account, not a rewrite.</li>
-              <li><b>Mainnet launch</b> with 2–3 design-partner data / compute providers, starting with the trading-agent price-feed use case that is already proven on testnet.</li>
+              <li><b>Sluice streams on Casper mainnet.</b> The same meter, the same agent and the same x402 scheme settle real per-second payments on <code>casper:casper</code>: <b>8 settlements across 2 streams and 2 providers</b>, blocks 8381075 to 8381217.</li>
+              <li><b>Our own CEP-18 token deployed on mainnet</b>, and <code>npm run verify:mainnet</code> checks every claimed mainnet settlement against a public mainnet node, with no API key and no account.</li>
+              <li><b>Sluice runs its own x402 facilitator</b>, so there is no third-party dependency in the settlement path on either network.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="phase next">
+          <div class="when">Q3 2026</div>
+          <h2>Design partners <span class="badge wip">Next</span></h2>
+          <div class="card">
+            <ul class="feat">
+              <li><b>2–3 design-partner data / compute providers</b>, starting with the trading-agent price-feed use case already proven on both networks.</li>
               <li><b>Usage-based revenue share</b> for providers metering their resources through Sluice.</li>
             </ul>
           </div>
