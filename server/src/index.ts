@@ -10,6 +10,7 @@ import { MockSettlementProvider, type SettlementProvider } from "./settlement.ts
 import { mountCasperLive } from "./casper-live.ts";
 import { mountDemo, seedSnapshot } from "./demo.ts";
 import { createFacilitatorRouter, facilitatorOptionsFromEnv } from "../../facilitator/src/router.ts";
+import { mountFaucet } from "./faucet.ts";
 import { nextChunk } from "./feed.ts";
 import type { ImpactSnapshot, OpenSessionRequest, TickResponse } from "../../shared/types.ts";
 
@@ -186,6 +187,10 @@ app.get("/impact", (_req, res) => {
 });
 
 // Judge-facing demo console: one click runs a real (or clearly-labelled simulated) agent session.
+// Token faucet, so a third-party agent can onboard itself instead of asking us for tokens.
+// LIVE only: in MOCK mode settlement is synthetic and no token is needed.
+if (cfg.mode === "live" && cfg.assetPackage) mountFaucet(app, cfg);
+
 mountDemo(app, cfg, cfg.mode === "live" && liveReady);
 
 app.use(express.static(join(__dirname, "..", "public")));

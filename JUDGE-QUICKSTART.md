@@ -93,6 +93,20 @@ has ever produced is in the feed you verified in step 2:
 - Demo video: https://youtu.be/2j7Rlckm_0Q
 - Live wiring: `server/src/casper-live.ts` (server side), `agent/src/index.ts` (agent side)
 
+## 4b. Onboard your own agent with real tokens (2 minutes)
+
+Sluice's claim is that any agent can rent a stream. An agent with no payment token cannot, so the
+deployed service runs a faucet. No key, no account, no asking us:
+
+```bash
+curl -s https://sluice-kff3.onrender.com/faucet
+curl -s -X POST https://sluice-kff3.onrender.com/faucet   -H 'Content-Type: application/json'   -d '{"address":"00<your 64 hex Casper account hash>"}'
+```
+
+It returns a real transaction hash you can open on testnet.cspr.live. Once it finalizes, that
+account can pay ticks against the live server exactly like our own agents do. One grant per
+address, with per-client and daily caps, because each grant spends real gas.
+
 ## 5. Consume it from your own agent (optional, 2 minutes)
 
 With the mock server from step 3 still running:

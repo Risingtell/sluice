@@ -275,6 +275,20 @@ claude mcp add sluice -- npx tsx mcp/server.ts
 
 Both ship in this repo and are consumed from the clone (`npx tsx examples/rent-a-stream.ts`,
 `npx tsx mcp/server.ts`). They are not on npm yet, so do not try to install them from there.
+
+### Onboard your own agent (no need to ask us)
+
+An agent that cannot get the payment token cannot pay, so Sluice runs a faucet. Ask it for tokens
+with your own Casper account hash and it sends them on-chain:
+
+```bash
+curl -s https://sluice-kff3.onrender.com/faucet          # what it grants, and how much is left today
+curl -s -X POST https://sluice-kff3.onrender.com/faucet   -H 'Content-Type: application/json'   -d '{"address":"00<your 64 hex account hash>"}'
+```
+
+You get a real transaction hash back, and once it finalizes your agent can open a session and pay
+ticks like any other. One grant per address, with per-client and daily caps, because it spends real
+gas.
 | `server/src/demo.ts`, `server/public/demo.html` | judge-facing live demo console |
 | `contracts/sluice_registry` | `SluiceRegistry` Odra contract (stream terms + checkpoint anchoring) |
 | `scripts/verify-onchain.ts` | trustless verifier (re-derives totals from the Casper ledger) |
