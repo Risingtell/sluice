@@ -152,10 +152,10 @@ over-claims; the on-chain ledger is the source of truth:
 
 ```
 ON-CHAIN (re-derived from the Casper token ledger):
-  Lumen Markets (BTC) 245 settlements · 2.504535 X402
+  Lumen Markets (BTC) 251 settlements · 2.554535 X402
   Helios Feeds (ETH)   54 settlements · 0.320515 X402
-  NimbusGPU (GPU)      38 settlements · 0.663620 X402
-  TOTAL               337 settlements · 3.488670 X402
+  NimbusGPU (GPU)      41 settlements · 0.713094 X402
+  TOTAL               346 settlements · 3.588144 X402
 
 PROOF FEED claims:
   TOTAL               301 settlements · 3.205548 X402
@@ -166,6 +166,9 @@ ROW-LEVEL CHECK (each claimed settlement matched to an on-chain transfer by depl
 
 VERIFIED: every settlement the feed claims is backed by a real on-chain transfer.
 ```
+
+The on-chain total keeps growing every time someone runs the live demo console, so expect it to be
+higher than the sample above. That is the invariant working: the chain is always at least the feed.
 
 It checks two things, not one: the on-chain totals must be at least what the feed claims, and
 **every published settlement row must match a real on-chain transfer by deploy hash**. Totals alone
