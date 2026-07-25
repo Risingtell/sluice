@@ -105,6 +105,7 @@ async function main() {
 
   // Settlements = transfers FROM an agent TO a non-agent (the provider).
   const perProvider: Record<string, { count: number; total: bigint }> = {};
+  const settledHashes = new Set<string>();
   let totalCount = 0;
   let grandTotal = 0n;
   for (const a of actions) {
@@ -115,6 +116,7 @@ async function main() {
     perProvider[name] ??= { count: 0, total: 0n };
     perProvider[name].count++;
     perProvider[name].total += BigInt(a.amount || "0");
+    settledHashes.add(String(a.deploy_hash || "").toLowerCase());
     totalCount++;
     grandTotal += BigInt(a.amount || "0");
   }
@@ -132,12 +134,40 @@ async function main() {
     const claimedPaid = BigInt(feed.totals?.totalPaid || "0");
     console.log("PROOF FEED claims:");
     console.log(`  ${"TOTAL".padEnd(15)} ${String(claimed).padStart(3)} settlements · ${fmt(claimedPaid)} X402\n`);
+    // Row-level backing check. Totals alone are a weak test: a feed row whose transfer never
+    // landed still hides under a bigger on-chain total. So match EVERY settlement row the feed
+    // publishes to a real on-chain transfer by its deploy hash. A hash that is well-formed but
+    // absent from the ledger (or that belongs to a reverted deploy) fails here.
+    const rows: Array<{ txHash?: string }> = [];
+    let rowSource = "the 50 settlement rows published in the proof feed";
+    try {
+      const canonical = JSON.parse(readFileSync("server/.data/impact.json", "utf8"));
+      if (Array.isArray(canonical.events) && canonical.events.length) {
+        rows.push(...canonical.events);
+        rowSource = `all ${canonical.events.length} settlement rows in the local proof history`;
+      }
+    } catch {}
+    if (!rows.length) rows.push(...(feed.recent || []));
+
+    const unmatched = rows.filter((r) => !settledHashes.has(String(r.txHash || "").toLowerCase()));
+    console.log("ROW-LEVEL CHECK (each claimed settlement matched to an on-chain transfer by deploy hash):");
+    console.log(`  checked ${rows.length} rows from ${rowSource}`);
+    if (unmatched.length) {
+      console.log(`  UNBACKED: ${unmatched.length} row(s) have no matching on-chain settlement transfer:`);
+      for (const u of unmatched.slice(0, 10)) console.log(`    ${String(u.txHash).slice(0, 24)}…`);
+      console.log("\nWARNING: the feed claims settlements the ledger does not show. Investigate before publishing.");
+      process.exitCode = 1;
+      return;
+    }
+    console.log(`  all ${rows.length} matched\n`);
+
     if (totalCount >= claimed && grandTotal >= claimedPaid) {
       console.log(`VERIFIED: every settlement the feed claims is backed by a real on-chain transfer.`);
       console.log(`   The chain shows ${totalCount} settlements (${fmt(grandTotal)} X402), at least the feed's`);
       console.log(`   ${claimed} (${fmt(claimedPaid)} X402). Sluice never over-claims; the on-chain ledger is the source of truth.`);
     } else {
       console.log(`WARNING: chain (${totalCount}) is below the feed's claim (${claimed}). Investigate.`);
+      process.exitCode = 1;
     }
   } catch {
     console.log("(proof feed not found locally; on-chain totals above stand on their own.)");

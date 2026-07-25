@@ -69,9 +69,17 @@ function cleanLine(line: string): string {
 
 type Send = (event: string, data: unknown) => void;
 
-/** Run the REAL agent (child process, same code as `npm run agent`) and relay its output. */
-function runLiveChild(streamId: string, port: number, send: Send): Promise<number> {
+/**
+ * Run the REAL agent (child process, same code as `npm run agent`) and relay its output.
+ *
+ * Resolves with the exit code AND how many ticks actually settled on-chain. The agent exits 0 even
+ * when it closes the gate because a tick went unpaid (that is its designed behaviour, not a crash),
+ * so the exit code alone cannot tell a healthy live run from one where settlement never completed.
+ * Only a tick that really settled prints an explorer link, so counting those is the honest signal.
+ */
+function runLiveChild(streamId: string, port: number, send: Send): Promise<{ code: number; settled: number }> {
   return new Promise((resolve) => {
+    let settled = 0;
     const child = spawn(
       process.execPath,
       ["node_modules/tsx/dist/cli.mjs", "agent/src/index.ts"],
@@ -100,8 +108,10 @@ function runLiveChild(streamId: string, port: number, send: Send): Promise<numbe
         if (!line.trim()) continue;
         // Enrich tick lines with the full explorer link for the UI.
         const tx = /https:\/\/testnet\.cspr\.live\/deploy\/([0-9a-f]{64})/.exec(raw);
-        if (tx) send("tick", { line, txHash: tx[1], explorerUrl: tx[0] });
-        else if (/gate|closed|objective|budget|watching|warming|signal|job/i.test(line) && /^\s/.test(raw)) send("log", { line });
+        if (tx) {
+          settled++;
+          send("tick", { line, txHash: tx[1], explorerUrl: tx[0] });
+        } else if (/gate|closed|objective|budget|watching|warming|signal|job/i.test(line) && /^\s/.test(raw)) send("log", { line });
         else send("log", { line });
       }
     };
@@ -112,11 +122,11 @@ function runLiveChild(streamId: string, port: number, send: Send): Promise<numbe
     const killer = setTimeout(() => child.kill(), 240_000);
     child.on("close", (code) => {
       clearTimeout(killer);
-      resolve(code ?? 1);
+      resolve({ code: code ?? 1, settled });
     });
     child.on("error", () => {
       clearTimeout(killer);
-      resolve(1);
+      resolve({ code: 1, settled });
     });
   });
 }
@@ -208,11 +218,16 @@ export function mountDemo(app: Express, cfg: ServerConfig, liveReady: boolean): 
       if (canLive) {
         writeBudget({ day: budget.day, liveSessions: budget.liveSessions + 1 });
         send("mode", { live: true, note: "real on-chain settlement on casper:casper-test" });
-        const code = await runLiveChild(streamId, cfg.port, send);
-        if (code !== 0) {
+        const { code, settled } = await runLiveChild(streamId, cfg.port, send);
+        // A live run that settled nothing is not a demonstration of anything: show the full
+        // mechanism via the simulated path instead of leaving the viewer on an empty session.
+        // The live budget is only spent when a live run actually settled, so a later visitor
+        // still gets a real on-chain attempt.
+        if (code !== 0 || settled === 0) {
+          writeBudget({ day: budget.day, liveSessions: budget.liveSessions });
           send("mode", {
             live: false,
-            note: "live settlement unavailable right now (daily facilitator quota is shared); continuing in simulation",
+            note: "live settlement is not completing right now; continuing in simulation so the full metering loop is still visible",
           });
           await runSimulated(streamId, simMeter, send);
         }

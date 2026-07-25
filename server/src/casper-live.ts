@@ -80,7 +80,19 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
       const quote = freshPending(sessionId);
       if (!quote) return;
       pending.delete(sessionId);
-      const txHash: string = sctx.result?.transaction ?? "";
+
+      // The hook fires whenever the facilitator ANSWERS the settle call, including when that
+      // answer reports an on-chain failure. A reverted transfer still carries a transaction hash
+      // (the hash of the reverted deploy), so the hash alone proves nothing. Commit only on an
+      // explicit success, or the proof feed would record settlements the ledger never made.
+      const result = sctx.result;
+      const txHash: string = result?.transaction ?? "";
+      if (result?.success !== true) {
+        const why = result?.errorMessage || result?.errorReason || "settlement did not succeed";
+        meter.halt(sessionId, `settlement failed: ${why}`);
+        return;
+      }
+
       meter.commitTick(quote, {
         txHash,
         network: chainID,
