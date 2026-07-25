@@ -56,8 +56,8 @@ npm run verify
 npm test
 ```
 
-`npm run verify` re-derives the totals from the chain; `npm test` runs 11 tests named after the
-claims they defend, five of which assert the published numbers against the real on-chain ledger
+`npm run verify` re-derives the totals from the chain; `npm test` runs 13 tests named after the
+claims they defend, seven of which assert the published numbers against the real on-chain ledger
 snapshot. Both exit non-zero on failure.
 
 This re-derives the totals **from the Casper token ledger itself**, independent of our server and

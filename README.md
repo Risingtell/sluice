@@ -272,6 +272,9 @@ claude mcp add sluice -- npx tsx mcp/server.ts
 | `agent/src/policy.ts` | agent policies: `trend-hunter`, `job-runner` (the agency) |
 | `sdk/` | `@sluice/x402` client SDK (budget-guarded autonomous streaming loop) |
 | `mcp/` | `sluice-mcp` MCP server (any MCP-capable LLM agent as the buyer) |
+
+Both ship in this repo and are consumed from the clone (`npx tsx examples/rent-a-stream.ts`,
+`npx tsx mcp/server.ts`). They are not on npm yet, so do not try to install them from there.
 | `server/src/demo.ts`, `server/public/demo.html` | judge-facing live demo console |
 | `contracts/sluice_registry` | `SluiceRegistry` Odra contract (stream terms + checkpoint anchoring) |
 | `scripts/verify-onchain.ts` | trustless verifier (re-derives totals from the Casper ledger) |
