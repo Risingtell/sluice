@@ -23,11 +23,12 @@ Built for the [Casper Agentic Buildathon 2026](https://dorahacks.io/hackathon/ca
 > and the same x402 scheme settle real per-second payments on `casper:casper`, against our own
 > mainnet CEP-18 token
 > [`df101ac1...`](https://cspr.live/contract-package/df101ac1be4fd5f390ce02fa4b43f610818d08d96f3183e182e92d325bd85950):
-> [settlement 1](https://cspr.live/deploy/ad0587a93caf6f50d682981b1a68c533b5d8ecc4878be62a5efd81d9e863e513)
-> (block 8381075),
-> [settlement 2](https://cspr.live/deploy/e6fc1db576f72d7c9ba8504b4d33d231091cef316c07d64c7489c92fb2170bbd)
-> (block 8381077). Mainnet is a config change, and we made it. The 301-settlement proof feed below
-> stays on testnet, which is where the buildathon's deployed-contract criterion applies.
+> **8 real mainnet settlements** across 2 streams and 2 providers, blocks 8381075 to 8381217.
+> Check them yourself with **`npm run verify:mainnet`**, which needs no API key and no account: it
+> looks up every claimed settlement on a public Casper mainnet node and fails if any one of them did
+> not execute. Mainnet is a config change, and we made it. The 301-settlement proof feed below stays
+> on testnet, which is where the buildathon's deployed-contract criterion applies, and the two are
+> never mixed into one number.
 
 > **Sluice runs its own x402 facilitator.** The public hosted facilitator builds the CEP-18 settle
 > call with the runtime argument named `value`, while the reference `Cep18X402` token's entry point

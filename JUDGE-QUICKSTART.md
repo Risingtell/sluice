@@ -31,11 +31,16 @@ The same meter and agent settle real per-second x402 payments on Casper **mainne
 
 - Our mainnet CEP-18 token:
   [`df101ac1...`](https://cspr.live/contract-package/df101ac1be4fd5f390ce02fa4b43f610818d08d96f3183e182e92d325bd85950)
-- Real mainnet settlements:
+- 8 real mainnet settlements across 2 streams, blocks 8381075 to 8381217, e.g.
   [`ad0587a9...`](https://cspr.live/deploy/ad0587a93caf6f50d682981b1a68c533b5d8ecc4878be62a5efd81d9e863e513)
-  (block 8381075) and
-  [`e6fc1db5...`](https://cspr.live/deploy/e6fc1db576f72d7c9ba8504b4d33d231091cef316c07d64c7489c92fb2170bbd)
-  (block 8381077)
+- Verify all of them yourself, no key and no account needed:
+
+```bash
+npm run verify:mainnet
+```
+
+  It looks up every claimed mainnet settlement on a public Casper mainnet node and exits non-zero if
+  any one of them did not execute on-chain.
 
 The 301-settlement proof feed in step 2 is the testnet history, kept separate from mainnet on
 purpose so the two are never mixed in one number.

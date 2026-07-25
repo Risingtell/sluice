@@ -81,6 +81,31 @@ describe("the published numbers are backed by the Casper ledger", () => {
   });
 });
 
+describe("the mainnet claim is exact", () => {
+  test("every_claimed_mainnet_settlement_has_a_wellformed_unique_hash", () => {
+    const doc = JSON.parse(readFileSync("data/mainnet-settlements.json", "utf8"));
+    assert.equal(doc.network, "casper:casper");
+    assert.ok(doc.settlements.length > 0, "no mainnet settlements claimed");
+    const hashes = doc.settlements.map((s: { txHash: string }) => s.txHash);
+    for (const h of hashes) assert.match(h, /^[0-9a-f]{64}$/, `malformed mainnet tx hash: ${h}`);
+    assert.equal(new Set(hashes).size, hashes.length, "duplicate mainnet tx hash claimed");
+    // A hash proves nothing on its own; npm run verify:mainnet checks each one executed on-chain.
+  });
+
+  test("mainnet_settlements_are_never_mixed_into_the_testnet_feed", () => {
+    const mainnet = new Set(
+      JSON.parse(readFileSync("data/mainnet-settlements.json", "utf8")).settlements.map(
+        (s: { txHash: string }) => s.txHash,
+      ),
+    );
+    const rows = (feed().recent ?? []) as Array<{ txHash?: string; network?: string }>;
+    for (const r of rows) {
+      assert.ok(!mainnet.has(String(r.txHash)), "a mainnet settlement leaked into the testnet feed");
+      if (r.network) assert.notEqual(r.network, "casper:casper");
+    }
+  });
+});
+
 /** Minimal in-memory store satisfying what StreamingMeter needs. */
 function fakeStore(spec: StreamSpec) {
   const sessions = new Map<string, Session>();

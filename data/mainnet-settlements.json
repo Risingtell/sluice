@@ -1,0 +1,69 @@
+{
+  "network": "casper:casper",
+  "assetPackage": "df101ac1be4fd5f390ce02fa4b43f610818d08d96f3183e182e92d325bd85950",
+  "explorer": "https://cspr.live",
+  "settlements": [
+    {
+      "txHash": "ad0587a93caf6f50d682981b1a68c533b5d8ecc4878be62a5efd81d9e863e513",
+      "streamId": "btc-usd",
+      "provider": "Lumen Markets",
+      "amount": "4021000",
+      "payTo": "00b76372880f98f0ddaf31257e32fb5b1b787a7bd9d20642dfac63b32ff7367a12"
+    },
+    {
+      "txHash": "e6fc1db576f72d7c9ba8504b4d33d231091cef316c07d64c7489c92fb2170bbd",
+      "streamId": "btc-usd",
+      "provider": "Lumen Markets",
+      "amount": "9957000",
+      "payTo": "00b76372880f98f0ddaf31257e32fb5b1b787a7bd9d20642dfac63b32ff7367a12"
+    },
+    {
+      "txHash": "aa7d511fadeb96d7132bcee1971eef118336097676863d050071b08729b60129",
+      "streamId": "gpu-telemetry",
+      "provider": "NimbusGPU",
+      "amount": "10115000",
+      "payTo": "00fc58cef2cb0adf3ade43868254aae8cfc4601f169e60c7ca6bf3a0f4aa85d491",
+      "seconds": 4.046
+    },
+    {
+      "txHash": "3c726c1baa89b3db08c0f04dbfae0fb2a47831be562f89e42eaa21fc4509d0f2",
+      "streamId": "gpu-telemetry",
+      "provider": "NimbusGPU",
+      "amount": "25000000",
+      "payTo": "00fc58cef2cb0adf3ade43868254aae8cfc4601f169e60c7ca6bf3a0f4aa85d491",
+      "seconds": 10
+    },
+    {
+      "txHash": "7d4e64c552a174713b4a3f10bb0a37ad710804a42a2a3b038535149808b04c7d",
+      "streamId": "gpu-telemetry",
+      "provider": "NimbusGPU",
+      "amount": "25000000",
+      "payTo": "00fc58cef2cb0adf3ade43868254aae8cfc4601f169e60c7ca6bf3a0f4aa85d491",
+      "seconds": 10
+    },
+    {
+      "txHash": "d5cde19cd9781b56689040bace233f3395f691de4df87a622991d064df9e2f7e",
+      "streamId": "gpu-telemetry",
+      "provider": "NimbusGPU",
+      "amount": "25000000",
+      "payTo": "00fc58cef2cb0adf3ade43868254aae8cfc4601f169e60c7ca6bf3a0f4aa85d491",
+      "seconds": 10
+    },
+    {
+      "txHash": "4faa2697a7c846c6367d40ef3b1201756c0dbe83c39a19b7626d6dff3ab3e73f",
+      "streamId": "gpu-telemetry",
+      "provider": "NimbusGPU",
+      "amount": "25000000",
+      "payTo": "00fc58cef2cb0adf3ade43868254aae8cfc4601f169e60c7ca6bf3a0f4aa85d491",
+      "seconds": 10
+    },
+    {
+      "txHash": "4d05fa2161174995335ac5f0ebd89132d5fa0ea1df45ad62c3afd9a289d0222f",
+      "streamId": "gpu-telemetry",
+      "provider": "NimbusGPU",
+      "amount": "25000000",
+      "payTo": "00fc58cef2cb0adf3ade43868254aae8cfc4601f169e60c7ca6bf3a0f4aa85d491",
+      "seconds": 10
+    }
+  ]
+}
