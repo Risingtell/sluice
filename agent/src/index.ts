@@ -22,6 +22,11 @@ const TICK_MS = parseInt(process.env.AGENT_TICK_MS || "1000", 10);
 const MAX_TICKS = parseInt(process.env.AGENT_MAX_TICKS || "20", 10);
 // Spend ceiling for the whole session — the agent will not authorize a tick that breaches it.
 const BUDGET_X402 = parseFloat(process.env.AGENT_BUDGET_X402 || "0.08");
+// cspr.live hosts mainnet; testnet lives on its own subdomain.
+const EXPLORER =
+  (process.env.CAIP2_CHAIN_ID || "casper:casper-test") === "casper:casper"
+    ? "https://cspr.live"
+    : "https://testnet.cspr.live";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const fmt = (units: string) => (Number(BigInt(units)) / 1e9).toFixed(6);
@@ -111,7 +116,7 @@ async function main(): Promise<void> {
         chunk = body.data;
         console.log(
           `   ⛽ tick ${String(tick).padStart(2)} | total ${fmt(body.session.totalPaid)} ${spec.asset} | ` +
-            `${txHash ? "tx " + txHash.slice(0, 14) + "…  https://testnet.cspr.live/deploy/" + txHash : "(settling)"}`,
+            `${txHash ? "tx " + txHash.slice(0, 14) + "…  " + EXPLORER + "/deploy/" + txHash : "(settling)"}`,
         );
       } else {
         const r = await jsonPost<{ session: Session; settlement: SettlementEvent; data: unknown }>(

@@ -18,6 +18,22 @@ Built for the [Casper Agentic Buildathon 2026](https://dorahacks.io/hackathon/ca
 > Two of our **own Casper contracts** are deployed: the CEP-18 `X402` token every payment moves, and
 > the **`SluiceRegistry`** ([on-chain](https://testnet.cspr.live/contract-package/a7cbd09cc9f99216141ede2dd063c57208e94ee0ca62780e3194beb05cf352cc))
 > that anchors the settlement totals on Casper, so the proof feed is verifiable against chain state.
+>
+> **And it is not testnet-only. Sluice streams on Casper MAINNET.** The same meter, the same agent
+> and the same x402 scheme settle real per-second payments on `casper:casper`, against our own
+> mainnet CEP-18 token
+> [`df101ac1...`](https://cspr.live/contract-package/df101ac1be4fd5f390ce02fa4b43f610818d08d96f3183e182e92d325bd85950):
+> [settlement 1](https://cspr.live/deploy/ad0587a93caf6f50d682981b1a68c533b5d8ecc4878be62a5efd81d9e863e513)
+> (block 8381075),
+> [settlement 2](https://cspr.live/deploy/e6fc1db576f72d7c9ba8504b4d33d231091cef316c07d64c7489c92fb2170bbd)
+> (block 8381077). Mainnet is a config change, and we made it. The 301-settlement proof feed below
+> stays on testnet, which is where the buildathon's deployed-contract criterion applies.
+
+> **Sluice runs its own x402 facilitator.** The public hosted facilitator builds the CEP-18 settle
+> call with the runtime argument named `value`, while the reference `Cep18X402` token's entry point
+> reads `amount`, so settlements through it revert on-chain. Sluice runs the official
+> `@make-software/casper-x402` facilitator scheme itself (`facilitator/`), so the argument names
+> agree by construction, on both networks, with no third-party dependency in the settlement path.
 
 ---
 

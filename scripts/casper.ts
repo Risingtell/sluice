@@ -10,7 +10,9 @@ loadEnv();
 const { KeyAlgorithm, PrivateKey, RpcClient, HttpHandler, PurseIdentifier } = casperSdk;
 
 export const RPC_URL = process.env.RPC_URL || "https://node.testnet.casper.network/rpc";
-export const CHAIN_NAME = "casper-test";
+export const CHAIN_NAME = process.env.CASPER_CHAIN_NAME || "casper-test";
+/** Block explorer base for the active network. */
+export const EXPLORER = CHAIN_NAME === "casper" ? "https://cspr.live" : "https://testnet.cspr.live";
 
 export function rpc() {
   return new RpcClient(new HttpHandler(RPC_URL));

@@ -55,6 +55,9 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
       Promise.resolve({ asset: assetPackage, amount: "0", extra: tokenExtra } as AssetAmount),
     );
 
+  // cspr.live hosts mainnet; testnet lives on its own subdomain.
+  const explorerBase = chainID === "casper:casper" ? "https://cspr.live" : "https://testnet.cspr.live";
+
   // Cache quotes per session so the challenge + signed retry settle the same amount. A quote is
   // only valid for one tick exchange; if an agent abandons a challenge (or a settle fails without
   // its hook firing) the stale quote must NOT be reused for the next tick — that would bill the old
@@ -96,7 +99,7 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
       meter.commitTick(quote, {
         txHash,
         network: chainID,
-        explorerUrl: txHash ? `https://testnet.cspr.live/deploy/${txHash}` : "",
+        explorerUrl: txHash ? `${explorerBase}/deploy/${txHash}` : "",
       });
     })
     .onSettleFailure(async (sctx: any) => {

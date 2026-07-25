@@ -10,7 +10,7 @@
  */
 import casperSdk from "casper-js-sdk";
 import { readFileSync, writeFileSync } from "node:fs";
-import { rpc, loadAgentKey, csprBalance, fmtCspr, CHAIN_NAME } from "./casper.ts";
+import { rpc, loadAgentKey, csprBalance, fmtCspr, CHAIN_NAME, EXPLORER } from "./casper.ts";
 
 const { Args, CLValue } = casperSdk;
 
@@ -47,6 +47,7 @@ async function waitFor(hash: string): Promise<void> {
 async function main() {
   const agent = loadAgentKey();
   const pub = agent.publicKey;
+  console.log(`network: ${CHAIN_NAME}`);
   console.log(`agent: ${pub.toHex()}`);
   console.log(`CSPR balance: ${fmtCspr(await csprBalance(pub))} CSPR`);
 
@@ -82,7 +83,7 @@ async function main() {
   const res: any = await rpc().putTransaction(tx);
   const hash = res.transactionHash.toHex();
   console.log(`\ninstall tx: ${hash}`);
-  console.log(`https://testnet.cspr.live/deploy/${hash}`);
+  console.log(`${EXPLORER}/deploy/${hash}`);
   process.stdout.write("waiting");
   await waitFor(hash);
   console.log("\n✅ token installed");
