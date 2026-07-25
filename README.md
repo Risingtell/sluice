@@ -9,7 +9,7 @@ Built for the [Casper Agentic Buildathon 2026](https://dorahacks.io/hackathon/ca
 **Demo video:** https://youtu.be/C_0LxnopK00 · **Live proof:** https://risingtell.github.io/sluice/ ·
 **Judge quickstart:** [JUDGE-QUICKSTART.md](JUDGE-QUICKSTART.md)
 
-> **It's live, and it's a real economy.** Sluice has settled **289 real per-second payments on
+> **It's live, and it's a real economy.** Sluice has settled **301 real per-second payments on
 > `casper:casper-test`** across **5 independent autonomous agents**, each with its own funded Casper
 > wallet, paying **3 distinct providers**. Every tick is a CEP-18 `transfer_with_authorization`
 > signed by the agent's own key and finalized by the x402 facilitator, clickable through to
@@ -66,7 +66,7 @@ the capital-efficient, autonomous behaviour Casper's agent-economy vision is bui
 |---|---|
 | Per-tick payment challenge + retry | `@x402/express` `paymentMiddleware` with `DynamicPrice` (per-tick variable pricing) |
 | Agent signs each tick | `@make-software/casper-x402` `ExactCasperScheme` client, EIP-712 `transfer_with_authorization` over CEP-18 |
-| Settlement without agent gas | Hosted x402 Facilitator (`x402-facilitator.cspr.cloud`) `/verify` + `/settle`, sponsored feePayer pays gas |
+| Settlement without agent gas | Self-hosted x402 facilitator (`facilitator/`, official `@make-software/casper-x402` scheme) `/verify` + `/settle`, its sponsored feePayer pays the gas |
 | Payment token | Our own deployed CEP-18 `X402` token contract (Odra), package `658bb84b...` |
 | Per-provider routing | `DynamicPayTo`: each stream's ticks settle to that provider's own Casper account |
 | On-chain anchoring of terms + totals | Our own deployed `SluiceRegistry` contract (Odra), package `a7cbd09c...` |
@@ -94,6 +94,17 @@ self-closing gate is a **decision**, not a timer.
 
 ---
 
+## Prerequisites
+
+```
+Node 20 or newer   (developed and tested on Node 24.16.0)
+```
+
+That is the whole list. No account, no API key, and no wallet is needed for anything below;
+`npm install && npm run verify` and `npm test` both run from a clean clone with no `.env`.
+
+---
+
 ## Verify it yourself (no trust required)
 
 Every settlement Sluice has ever made is recorded with its real Casper transaction hash:
@@ -101,7 +112,7 @@ Every settlement Sluice has ever made is recorded with its real Casper transacti
 ```bash
 # top-line cumulative proof
 curl -s http://localhost:4021/impact | jq '.totals'
-# => { "settlements": 289, "uniqueAgents": 5, "uniqueProviders": 3, "secondsStreamed": 2310, ... }
+# => { "settlements": 301, "uniqueAgents": 5, "uniqueProviders": 3, "secondsStreamed": 2398, ... }
 
 # pull any recent settlement and open it on the block explorer
 curl -s http://localhost:4021/impact | jq '.recent[0] | {txHash, explorerUrl, amount, seconds}'
@@ -124,12 +135,35 @@ over-claims; the on-chain ledger is the source of truth:
 
 ```
 ON-CHAIN (re-derived from the Casper token ledger):
-  NimbusGPU (GPU)      38 settlements · 0.66 X402
-  Helios Feeds (ETH)   52 settlements · 0.31 X402
-  Lumen Markets (BTC) 217 settlements · 2.29 X402
-  TOTAL               307 settlements · 3.26 X402
+  Lumen Markets (BTC) 245 settlements · 2.504535 X402
+  Helios Feeds (ETH)   54 settlements · 0.320515 X402
+  NimbusGPU (GPU)      38 settlements · 0.663620 X402
+  TOTAL               337 settlements · 3.488670 X402
+
+PROOF FEED claims:
+  TOTAL               301 settlements · 3.205548 X402
+
+ROW-LEVEL CHECK (each claimed settlement matched to an on-chain transfer by deploy hash):
+  checked 301 rows from all 301 settlement rows in the local proof history
+  all 301 matched
+
 VERIFIED: every settlement the feed claims is backed by a real on-chain transfer.
 ```
+
+It checks two things, not one: the on-chain totals must be at least what the feed claims, and
+**every published settlement row must match a real on-chain transfer by deploy hash**. Totals alone
+would be a weak test, because a reverted deploy still returns a transaction hash, so a well-formed
+hash proves nothing on its own.
+
+### Tests
+
+```bash
+npm test
+```
+
+11 tests, named after the claim each one defends. Five of them assert against the real committed
+on-chain ledger snapshot, so if the published numbers ever drift above what Casper actually shows,
+the suite fails instead of the over-claim shipping.
 
 The stream *terms* and settlement *checkpoints* are also anchored on-chain in our deployed
 **`SluiceRegistry`** contract, so both the rules and the results live on Casper, not just our server.
@@ -159,7 +193,7 @@ mode runs the *exact same* streaming logic with simulated settlement: no creds, 
 LIVE keep separate snapshot files, so simulated events never mix into the on-chain proof data.
 
 ### LIVE on Casper testnet
-Fill the LIVE section of `.env` (facilitator API key from cspr.cloud, funded testnet ed25519
+Fill the LIVE section of `.env` (funded testnet ed25519
 account, deployed CEP-18 token package) and set `MODE=live`:
 ```bash
 MODE=live npm run server
@@ -227,7 +261,8 @@ claude mcp add sluice -- npx tsx mcp/server.ts
 ## Tech
 
 `@make-software/casper-x402` (Casper `exact` scheme) · `@x402/express` + `@x402/core` + `@x402/fetch`
-· `casper-js-sdk` · Odra (both deployed contracts) · hosted facilitator at
-`x402-facilitator.cspr.cloud` (sponsored gas via its feePayer). Node + tsx, no build step.
+· `casper-js-sdk` · Odra (both deployed contracts) · a self-hosted x402 facilitator built on the
+official `@make-software/casper-x402` scheme (sponsored gas via its own feePayer). Node + tsx, no
+build step.
 
 MIT.

@@ -27,16 +27,24 @@ settlement. (Free hosting: the first request may take up to a minute to wake the
 
 ## 2. The numbers are not inflated (2 minutes, zero credentials)
 
+Prerequisite: Node 20 or newer (tested on Node 24.16.0). Nothing else.
+
 ```bash
 git clone https://github.com/Risingtell/sluice && cd sluice
 npm install
 npm run verify
+npm test
 ```
+
+`npm run verify` re-derives the totals from the chain; `npm test` runs 11 tests named after the
+claims they defend, five of which assert the published numbers against the real on-chain ledger
+snapshot. Both exit non-zero on failure.
 
 This re-derives the totals **from the Casper token ledger itself**, independent of our server and
 our feed: it reads every X402 transfer, counts agent-to-provider payments, and compares against
 what the public feed claims. Expected result: the chain shows **at least** as many settlements as
-the feed claims (currently chain 307, feed 289). Sluice never over-claims.
+the feed claims (currently chain 337, feed 301), and every published row is matched to a real
+on-chain transfer by deploy hash. Sluice never over-claims.
 
 With no key it verifies against the committed ledger snapshot in `data/onchain-actions.json`
 (the same raw data, refreshed at every keyed run). To re-pull the ledger live, set
@@ -57,9 +65,9 @@ so simulated events never touch the on-chain proof data).
 
 ## 4. The live x402 loop (what the demo video shows)
 
-The full live loop (agent signs EIP-712 per tick, hosted facilitator settles a real CEP-18
-transfer on `casper:casper-test`) needs a funded testnet key and a facilitator API key, so we
-do not ask judges to run it. It is shown end-to-end in the demo video and every settlement it
+The full live loop (agent signs EIP-712 per tick, Sluice's own facilitator settles a real CEP-18
+transfer on `casper:casper-test`) needs a funded testnet key, so we do not ask judges to run it
+locally. Step 0 above already runs it for you on the deployed service. It is shown end-to-end in the demo video and every settlement it
 has ever produced is in the feed you verified in step 2:
 
 - Demo video: https://youtu.be/C_0LxnopK00

@@ -12,7 +12,8 @@
     "verify": "tsx scripts/verify-onchain.ts",
     "demo": "concurrently -k -n server,agent -c green,cyan \"npm:server:once\" \"node -e 'setTimeout(()=>{},1500)' && sleep 2 && npm:agent\"",
     "typecheck": "tsc --noEmit",
-    "facilitator": "tsx facilitator/src/index.ts"
+    "facilitator": "tsx facilitator/src/index.ts",
+    "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@make-software/casper-x402": "^1.0.0",

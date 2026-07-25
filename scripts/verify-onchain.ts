@@ -10,6 +10,7 @@
  */
 import { readFileSync } from "node:fs";
 import { config as loadEnv } from "dotenv";
+import { deriveSettlements, findUnbacked } from "../shared/verify-lib.ts";
 loadEnv();
 
 const KEY = process.env.FACILITATOR_API_KEY || "";
@@ -104,22 +105,11 @@ async function main() {
   const actions = await fetchAllActions();
 
   // Settlements = transfers FROM an agent TO a non-agent (the provider).
-  const perProvider: Record<string, { count: number; total: bigint }> = {};
-  const settledHashes = new Set<string>();
-  let totalCount = 0;
-  let grandTotal = 0n;
-  for (const a of actions) {
-    const from = (a.from_hash || "").toLowerCase();
-    const to = (a.to_hash || "").toLowerCase();
-    if (!AGENTS.has(from) || AGENTS.has(to)) continue; // skip mint + agent-funding transfers
-    const name = PROVIDER_NAMES[to] || `provider ${to.slice(0, 10)}…`;
-    perProvider[name] ??= { count: 0, total: 0n };
-    perProvider[name].count++;
-    perProvider[name].total += BigInt(a.amount || "0");
-    settledHashes.add(String(a.deploy_hash || "").toLowerCase());
-    totalCount++;
-    grandTotal += BigInt(a.amount || "0");
-  }
+  const derived = deriveSettlements(actions, AGENTS, PROVIDER_NAMES);
+  const perProvider = derived.perProvider;
+  const settledHashes = derived.settledHashes;
+  const totalCount = derived.count;
+  const grandTotal = derived.total;
 
   console.log("ON-CHAIN (re-derived from the Casper token ledger):");
   for (const [name, v] of Object.entries(perProvider)) {
@@ -149,7 +139,7 @@ async function main() {
     } catch {}
     if (!rows.length) rows.push(...(feed.recent || []));
 
-    const unmatched = rows.filter((r) => !settledHashes.has(String(r.txHash || "").toLowerCase()));
+    const unmatched = findUnbacked(rows, settledHashes);
     console.log("ROW-LEVEL CHECK (each claimed settlement matched to an on-chain transfer by deploy hash):");
     console.log(`  checked ${rows.length} rows from ${rowSource}`);
     if (unmatched.length) {
