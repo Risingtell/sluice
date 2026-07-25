@@ -9,6 +9,7 @@ import { StreamingMeter, MeterError } from "./meter.ts";
 import { MockSettlementProvider, type SettlementProvider } from "./settlement.ts";
 import { mountCasperLive } from "./casper-live.ts";
 import { mountDemo, seedSnapshot } from "./demo.ts";
+import { createFacilitatorRouter, facilitatorOptionsFromEnv } from "../../facilitator/src/router.ts";
 import { nextChunk } from "./feed.ts";
 import type { ImpactSnapshot, OpenSessionRequest, TickResponse } from "../../shared/types.ts";
 
@@ -54,7 +55,31 @@ async function facilitatorReady(): Promise<boolean> {
   }
 }
 
-const liveReady = await facilitatorReady();
+/**
+ * Self-hosted facilitator (default in LIVE mode; set SELF_FACILITATOR=0 to use a remote one).
+ *
+ * The public hosted facilitator builds the CEP-18 settle call with the runtime argument named
+ * `value`, while the reference Cep18X402 token reads `amount`, so every settlement it attempts
+ * reverts on-chain. Running the official scheme in-process makes the argument names agree by
+ * construction and keeps Sluice on its existing token and ledger.
+ *
+ * It is mounted on this same app, so there is no second service to deploy or wake. Construction is
+ * the readiness check: it loads the fee-payer key and registers the scheme, so if it succeeds the
+ * facilitator is live. The HTTP preflight is skipped in this mode because the server is not
+ * listening yet at this point in startup.
+ */
+let selfFacilitator: Awaited<ReturnType<typeof createFacilitatorRouter>> | null = null;
+if (cfg.mode === "live" && process.env.SELF_FACILITATOR !== "0") {
+  try {
+    selfFacilitator = await createFacilitatorRouter(facilitatorOptionsFromEnv());
+    cfg.facilitatorUrl = `http://127.0.0.1:${cfg.port}/facilitator`;
+    console.log(`   self-hosted facilitator: fee payer ${selfFacilitator.feePayer.join(", ").slice(0, 24)}`);
+  } catch (err) {
+    console.warn(`   self-hosted facilitator unavailable (${(err as Error).message}); falling back to ${cfg.facilitatorUrl}`);
+  }
+}
+
+const liveReady = selfFacilitator ? true : await facilitatorReady();
 
 const meter = new StreamingMeter(store, { payTo: cfg.payTo, maxTickSeconds: cfg.maxTickSeconds });
 
@@ -65,6 +90,9 @@ const provider: SettlementProvider = new MockSettlementProvider();
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// The self-hosted facilitator shares this process, so the resource server reaches it over loopback.
+if (selfFacilitator) app.use("/facilitator", selfFacilitator.router);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", mode: cfg.mode, network: cfg.network, liveSettlement: cfg.mode !== "live" || liveReady });

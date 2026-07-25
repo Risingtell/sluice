@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Streaming x402 meter for the agent economy — pay per second, settled on-chain via Casper.",
+  "description": "Streaming x402 meter for the agent economy \u2014 pay per second, settled on-chain via Casper.",
   "scripts": {
     "server": "tsx watch server/src/index.ts",
     "server:once": "tsx server/src/index.ts",
@@ -11,7 +11,8 @@
     "agent": "tsx agent/src/index.ts",
     "verify": "tsx scripts/verify-onchain.ts",
     "demo": "concurrently -k -n server,agent -c green,cyan \"npm:server:once\" \"node -e 'setTimeout(()=>{},1500)' && sleep 2 && npm:agent\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "facilitator": "tsx facilitator/src/index.ts"
   },
   "dependencies": {
     "@make-software/casper-x402": "^1.0.0",
