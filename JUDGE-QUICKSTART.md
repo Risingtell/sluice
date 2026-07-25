@@ -90,7 +90,7 @@ transfer on `casper:casper-test`) needs a funded testnet key, so we do not ask j
 locally. Step 0 above already runs it for you on the deployed service. It is shown end-to-end in the demo video and every settlement it
 has ever produced is in the feed you verified in step 2:
 
-- Demo video: https://youtu.be/C_0LxnopK00
+- Demo video: https://youtu.be/2j7Rlckm_0Q
 - Live wiring: `server/src/casper-live.ts` (server side), `agent/src/index.ts` (agent side)
 
 ## 5. Consume it from your own agent (optional, 2 minutes)
