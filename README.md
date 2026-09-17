@@ -5,6 +5,10 @@ agent stops consuming.** No subscriptions, no pre-bought credits.
 
 Built for the [Casper Agentic Buildathon 2026](https://dorahacks.io/hackathon/casper-agentic-buildathon).
 
+**3rd place, Casper Agentic Buildathon 2026** (10 winners from 116 finalists, professional jury):
+[winners page](https://dorahacks.io/hackathon/casper-agentic-buildathon-finals/winner) ·
+now in [Casper Forward](https://forward.casper.network/teams).
+
 **Live demo (run it yourself):** https://sluice-kff3.onrender.com/demo.html ·
 **Demo video:** https://youtu.be/2j7Rlckm_0Q · **Live proof:** https://risingtell.github.io/sluice/ ·
 **Judge quickstart:** [JUDGE-QUICKSTART.md](JUDGE-QUICKSTART.md)
