@@ -16,10 +16,11 @@
  *
  * Verification and settlement are the official `registerExactCasperFacilitatorScheme`
  * implementation. This file is the HTTP surface plus the safety rails a facilitator that spends
- * real gas needs: shared-secret auth, an asset allowlist, and a payee allowlist, so it can never be
- * used as an open relay to drain the fee payer.
+ * real gas needs: shared-secret auth, an asset allowlist, a payee allowlist, and a request rate
+ * limit, so it can never be used as an open relay to drain the fee payer.
  */
 import { Router, type Request, type Response } from "express";
+import rateLimit from "express-rate-limit";
 import { x402Facilitator } from "@x402/core/facilitator";
 import { createFacilitatorCasperSigner, registerExactCasperFacilitatorScheme } from "@make-software/casper-x402";
 
@@ -88,9 +89,24 @@ export async function createFacilitatorRouter(
 
   const router = Router();
 
+  /**
+   * Cap how fast one caller can reach the paid paths. The allowlists already stop a stranger from
+   * moving value, but every verify and settle costs the fee payer real work, so a flood from a
+   * single address must not be able to exhaust it. /health stays open for uptime probes.
+   */
+  const limiter = rateLimit({
+    windowMs: 60_000,
+    limit: Number(process.env.FACILITATOR_RATE_LIMIT_PER_MINUTE || 60),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "rate_limited" },
+  });
+
   router.get("/health", (_req, res) => {
     res.json({ status: "ok", networks: opts.networks, feePayer: signer.getAddresses(opts.networks[0] as never) });
   });
+
+  router.use(limiter);
 
   router.use((req: Request, res: Response, next) => {
     if (!opts.secret) return next();

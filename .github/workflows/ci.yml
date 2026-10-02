@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [master]
 
+# The job only reads the repository; grant nothing else to the job's token.
+permissions:
+  contents: read
+
 jobs:
   typecheck-and-test:
     runs-on: ubuntu-latest
