@@ -16,7 +16,7 @@ interface RealPrice {
 }
 
 const real = new Map<string, RealPrice>(); // streamId -> latest real price
-const walk = new Map<string, number>(); // streamId -> last synthetic price (fallback)
+const walk = new Map<string, { anchor: number; price: number }>(); // streamId -> synthetic walk (fallback)
 
 const COINGECKO = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd";
 const COIN_BY_STREAM: Record<string, string> = { "btc-usd": "bitcoin", "eth-usd": "ethereum" };
@@ -44,12 +44,18 @@ void poll();
 const timer = setInterval(() => void poll(), 10_000);
 (timer as { unref?: () => void }).unref?.();
 
-/** Bounded random walk used only until the first real price lands (or if upstream is down). */
+/**
+ * Bounded random walk used only until the first real price lands (or if upstream is down). It walks
+ * from the last real price when there is one, so a fallback quote stays near the actual market
+ * instead of near a seed that has gone stale.
+ */
 function syntheticPrice(streamId: string, seed: number): number {
-  const last = walk.get(streamId) ?? seed;
-  const drift = (Math.random() - 0.5) * seed * 0.004;
-  const next = Math.max(seed * 0.5, last + drift);
-  walk.set(streamId, next);
+  const anchor = real.get(streamId)?.price ?? seed;
+  const w = walk.get(streamId);
+  const last = w && w.anchor === anchor ? w.price : anchor;
+  const drift = (Math.random() - 0.5) * anchor * 0.004;
+  const next = Math.max(anchor * 0.5, last + drift);
+  walk.set(streamId, { anchor, price: next });
   return Math.round(next * 100) / 100;
 }
 
@@ -64,9 +70,9 @@ function priceChunk(symbol: string, streamId: string, seed: number, tick: number
 export function nextChunk(streamId: string, tick: number): unknown {
   switch (streamId) {
     case "btc-usd":
-      return priceChunk("BTC/USD", "btc-usd", 64000, tick);
+      return priceChunk("BTC/USD", "btc-usd", 81600, tick);
     case "eth-usd":
-      return priceChunk("ETH/USD", "eth-usd", 3400, tick);
+      return priceChunk("ETH/USD", "eth-usd", 2400, tick);
     case "gpu-telemetry":
       return {
         gpu: "A100-80GB",

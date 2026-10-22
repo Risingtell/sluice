@@ -184,6 +184,21 @@ describe("the agent decides for itself when to stop paying", () => {
     assert.match(decision.reason, /signal|objective/i);
   });
 
+  test("does_not_read_a_switch_from_fallback_to_real_price_as_a_signal", () => {
+    const { policy } = policyForStream("btc-usd", 1);
+    const budgetMotes = 1_000_000_000n;
+    const ctx = { tick: 1, spentMotes: 0n, nextTickMotes: 1_000_000n, budgetMotes };
+    policy.decide({ symbol: "BTC/USD", price: 64000, source: "synthetic" }, ctx);
+    // The real quote is far from the fallback walk; that gap is not a market move.
+    const switched = policy.decide({ symbol: "BTC/USD", price: 81552, source: "coingecko" }, { ...ctx, tick: 2 });
+    assert.equal(switched.keepStreaming, true);
+    assert.match(switched.reason, /re-anchored/);
+    // A genuine move on the same source still ends the session.
+    const moved = policy.decide({ symbol: "BTC/USD", price: 82000, source: "coingecko" }, { ...ctx, tick: 3 });
+    assert.equal(moved.keepStreaming, false);
+    assert.match(moved.reason, /signal/);
+  });
+
   test("refuses_a_tick_that_would_breach_its_budget", () => {
     const { policy } = policyForStream("btc-usd", 1);
     const budgetMotes = 1_000_000_000n;

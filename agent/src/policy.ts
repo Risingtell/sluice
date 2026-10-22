@@ -55,7 +55,7 @@ export function trendHunter(opts: { thresholdPct?: number; patienceTicks?: numbe
   // window an agent streams, so a scalp-sized threshold lets the agent act on genuine market moves.
   const threshold = opts.thresholdPct ?? 0.05;
   const patience = opts.patienceTicks ?? 8;
-  let entry: number | null = null;
+  let entry: { price: number; source: string } | null = null;
   return {
     name: "trend-hunter",
     objective: `act on a ≥${threshold}% price move`,
@@ -64,8 +64,17 @@ export function trendHunter(opts: { thresholdPct?: number; patienceTicks?: numbe
       if (guard) return guard;
       const price = Number(chunk?.price);
       if (!Number.isFinite(price)) return { keepStreaming: true, reason: "warming up" };
-      if (entry === null) entry = price;
-      const move = ((price - entry) / entry) * 100;
+      // A move is only meaningful between quotes from the same source. When the feed switches
+      // between its fallback and the real market price, re-anchor instead of reading the gap as a signal.
+      const source = String(chunk?.source ?? "");
+      if (entry === null || entry.source !== source) {
+        const switched = entry !== null;
+        entry = { price, source };
+        if (switched && ctx.tick < patience) {
+          return { keepStreaming: true, reason: `price source changed to ${source || "unknown"}, re-anchored` };
+        }
+      }
+      const move = ((price - entry.price) / entry.price) * 100;
       if (Math.abs(move) >= threshold) {
         return { keepStreaming: false, reason: `signal: ${pct(move)} move detected — objective met, gate closed` };
       }
