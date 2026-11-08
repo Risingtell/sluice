@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sluice: live demo console</title>
-    <meta name="description" content="Run a real autonomous agent session: per-second x402 payments settled on Casper mainnet, live in front of you." />
+    <meta name="description" content="Run a real autonomous agent session: per-second x402 payments settled on Casper testnet, live in front of you." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -106,8 +106,7 @@
           One click starts a real Sluice agent session on this server. The agent opens a stream,
           pays each tick with an x402 settlement, evaluates the data against its objective, and
           closes the gate on its own. When live budget is available, every tick you see lands as a
-          real CEP-18 transfer on Casper mainnet, or on testnet if you pick it, with a clickable
-          explorer link.
+          real CEP-18 transfer on Casper testnet with a clickable explorer link.
         </p>
       </section>
 
@@ -119,7 +118,6 @@
             <option value="gpu-telemetry">GPU telemetry (job-runner agent)</option>
           </select>
           <select id="network" aria-label="Network">
-            <option value="casper:casper">Casper mainnet</option>
             <option value="casper:casper-test">Casper testnet</option>
           </select>
           <button class="btn primary" id="run">Run autonomous agent</button>
@@ -134,11 +132,10 @@ Each line below is produced by the actual agent process, not a recording.</span>
       <div class="panel explain">
         <b>What you are watching.</b> The agent signs an EIP-712 <code>transfer_with_authorization</code>
         for every tick; Sluice's own x402 facilitator verifies it and settles a real CEP-18 transfer
-        on <code>casper:casper</code> (mainnet) or <code>casper:casper-test</code>, and pays the gas.
-        Tick lines carry the real transaction hash; open any of them on cspr.live. Live on-chain
-        sessions are budgeted per day and per network, with fewer on mainnet because every
-        settlement there spends real CSPR in gas; when a budget is spent the same meter and policy
-        code runs with simulated settlement, and this page says so plainly.
+        on <code>casper:casper-test</code>, and pays the gas. Tick lines carry the real transaction
+        hash; open any of them on testnet.cspr.live. Live on-chain sessions are budgeted per day;
+        when the budget is spent the same meter and policy code runs with simulated settlement,
+        and this page says so plainly.
         Cumulative history: <a href="/impact.html">live proof feed</a>. Independent audit:
         <code>npm run verify</code> re-derives every number from the Casper ledger.
       </div>
@@ -186,11 +183,12 @@ Each line below is produced by the actual agent process, not a recording.</span>
         attempt = attempt || 0;
         try {
           const s = await fetch("/demo/status").then((r) => r.json());
-          // Offer only the networks this server settles on, default (mainnet) first.
+          // Offer only the networks this server settles on, default first; no menu for just one.
           if (Array.isArray(s.networks) && s.networks.length) {
             const keep = networkEl.value;
             networkEl.innerHTML = s.networks.map((n) => '<option value="' + n + '">Casper ' + (NETWORK_LABEL[n] || n) + "</option>").join("");
             networkEl.value = lastStatus && s.networks.includes(keep) ? keep : s.defaultNetwork || s.networks[0];
+            networkEl.style.display = s.networks.length < 2 ? "none" : "";
           }
           lastStatus = s;
           showStatus();

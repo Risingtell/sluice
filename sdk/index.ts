@@ -26,7 +26,7 @@
 import type { ImpactSnapshot, Session, SettlementEvent, StreamSpec } from "../shared/types.ts";
 import { explorerFor, networkSelector } from "../shared/networks.ts";
 
-/** The hosted Sluice server: real providers, real settlement, Casper mainnet first. Pass it as serverUrl. */
+/** The hosted Sluice server: real providers, real on-chain settlement on Casper testnet. Pass it as serverUrl. */
 export const HOSTED_SERVER = "https://sluice-kff3.onrender.com";
 
 export interface SluiceConnectOptions {

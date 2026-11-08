@@ -13,12 +13,11 @@ services:
         value: live
       - key: ASSET_NAME
         value: Casper X402 Token
-      # Mainnet first: a client that accepts any Casper network pays on mainnet. Testnet stays on
-      # for free runs and keeps the proof feed the on-chain registry anchors.
+      # Testnet only: the public demo server never spends real CSPR. The same code settles on
+      # mainnet when NETWORKS lists casper:casper (with ASSET_PACKAGE_MAINNET), on a server whose
+      # owner chooses to pay that gas.
       - key: NETWORKS
-        value: casper:casper,casper:casper-test
-      - key: ASSET_PACKAGE_MAINNET
-        value: df101ac1be4fd5f390ce02fa4b43f610818d08d96f3183e182e92d325bd85950
+        value: casper:casper-test
       - key: ASSET_PACKAGE_TESTNET
         value: 658bb84ba4aa82ffc98a55e0f8c447103dd9d4a28fb32fca3363aa0e1300017e
       - key: CLIENT_PRIVATE_KEY_PATH
@@ -29,9 +28,6 @@ services:
         value: 00b76372880f98f0ddaf31257e32fb5b1b787a7bd9d20642dfac63b32ff7367a12
       - key: DEMO_LIVE_SESSIONS_PER_DAY
         value: "8"
-      # Each mainnet demo session spends about 20 CSPR of the fee payer's gas.
-      - key: DEMO_MAINNET_SESSIONS_PER_DAY
-        value: "4"
       - key: FACILITATOR_API_KEY
         sync: false
       - key: AGENT_KEY_PEM

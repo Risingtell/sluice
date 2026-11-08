@@ -1,6 +1,6 @@
 /**
  * The Casper networks Sluice settles on, in one place: CAIP-2 ids, explorers, public RPC nodes and
- * chain names. Mainnet is the default path; testnet stays available for free test runs.
+ * chain names. A server lists the networks it takes payment on, its default first; testnet is free.
  */
 
 export const MAINNET = "casper:casper";

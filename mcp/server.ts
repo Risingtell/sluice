@@ -14,7 +14,7 @@
  *                       https://sluice-kff3.onrender.com)
  *   SLUICE_MODE         mock | live (default mock; live needs the key below)
  *   SLUICE_NETWORK      casper:casper (mainnet) | casper:casper-test; unset pays with the
- *                       server's first Casper offer, which is mainnet on a Sluice server
+ *                       server's first Casper offer (testnet on the hosted server)
  *   CLIENT_PRIVATE_KEY_PATH  PEM Casper key that signs live payments
  *   CLIENT_KEY_ALGO     ed25519 (default) | secp256k1
  *

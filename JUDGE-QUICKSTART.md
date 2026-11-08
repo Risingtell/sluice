@@ -34,7 +34,7 @@ The same meter and agent settle real per-second x402 payments on Casper **mainne
 - 10 real mainnet settlements across 2 streams, blocks 8381075 to 9520138, e.g.
   [`ad0587a9...`](https://cspr.live/deploy/ad0587a93caf6f50d682981b1a68c533b5d8ecc4878be62a5efd81d9e863e513)
   from July and [`ac972dd1...`](https://cspr.live/deploy/ac972dd137e9392a5446807283c015a056b4540b39d3c91e31864b3b36f98b3c)
-  from 8 November, when the server went mainnet-first
+  from 8 November, through the same dual-network server code the demo runs
 - Verify all of them yourself, no key and no account needed:
 
 ```bash
@@ -58,7 +58,7 @@ npm run verify
 npm test
 ```
 
-`npm run verify` re-derives the totals from the chain; `npm test` runs 13 tests named after the
+`npm run verify` re-derives the totals from the chain; `npm test` runs 25 tests named after the
 claims they defend, seven of which assert the published numbers against the real on-chain ledger
 snapshot. Both exit non-zero on failure.
 
@@ -88,9 +88,9 @@ so simulated events never touch the on-chain proof data).
 ## 4. The live x402 loop (what the demo video shows)
 
 The full live loop (agent signs EIP-712 per tick, Sluice's own facilitator settles a real CEP-18
-transfer on `casper:casper-test`) needs a funded testnet key, so we do not ask judges to run it
-locally. Step 0 above already runs it for you on the deployed service. It is shown end-to-end in the demo video and every settlement it
-has ever produced is in the feed you verified in step 2:
+transfer on `casper:casper` or `casper:casper-test`) needs a funded key, so we do not ask judges to
+run it locally. Step 0 above already runs it for you on the deployed service. It is shown end-to-end
+in the demo video, and its testnet settlements go into the feed you verified in step 2:
 
 - Demo video: https://youtu.be/2j7Rlckm_0Q
 - Live wiring: `server/src/casper-live.ts` (server side), `agent/src/index.ts` (agent side)
@@ -128,4 +128,4 @@ pay for a stream itself. See [`sdk/README.md`](sdk/README.md) and [`mcp/README.m
 | 1 | Settlements are real on-chain CEP-18 transfers; both contracts are deployed and ours |
 | 2 | The published totals are backed 1:1 by the Casper ledger; no over-claiming |
 | 3 | The per-second meter, gate cutoff, and autonomous agent decisions actually work |
-| 4 | The same code runs the real x402 settlement loop on Casper testnet |
+| 4 | The same code runs the real x402 settlement loop on Casper mainnet and testnet |

@@ -1,5 +1,5 @@
 /**
- * Mainnet is Sluice's default path and testnet stays available. These tests pin how the server,
+ * A Sluice server can take payment on mainnet and testnet side by side. These tests pin how the server,
  * the facilitator and every client choose a network, and that the two are never added together.
  *
  *   npm test
@@ -17,7 +17,7 @@ import type { SettlementEvent, StreamSpec } from "../shared/types.ts";
 const MAIN_PKG = "df101ac1be4fd5f390ce02fa4b43f610818d08d96f3183e182e92d325bd85950";
 const TEST_PKG = "658bb84ba4aa82ffc98a55e0f8c447103dd9d4a28fb32fca3363aa0e1300017e";
 
-describe("mainnet is the default network and testnet stays available", () => {
+describe("a server lists mainnet and testnet, its default first", () => {
   test("NETWORKS lists mainnet first, each network with its own token", () => {
     const n = networksFromEnv({ NETWORKS: `${MAINNET},${TESTNET}`, ASSET_PACKAGE_MAINNET: `hash-${MAIN_PKG}`, ASSET_PACKAGE_TESTNET: TEST_PKG });
     assert.deepEqual(

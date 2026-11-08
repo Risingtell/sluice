@@ -28,20 +28,21 @@ now in [Casper Forward](https://forward.casper.network/teams).
 > mainnet CEP-18 token
 > [`df101ac1...`](https://cspr.live/contract-package/df101ac1be4fd5f390ce02fa4b43f610818d08d96f3183e182e92d325bd85950):
 > **10 real mainnet settlements** across 2 streams and 2 providers, blocks 8381075 to 9520138: 8 in
-> July, and 2 on 8 November through the mainnet-first server
+> July, and 2 on 8 November through the current dual-network server code
 > ([`ac972dd1...`](https://cspr.live/deploy/ac972dd137e9392a5446807283c015a056b4540b39d3c91e31864b3b36f98b3c),
 > [`4e060658...`](https://cspr.live/deploy/4e060658fcf3de842cac756705bed8490e4a7847cf7d40dc1f895cbe090eabc9)).
 > Check them yourself with **`npm run verify:mainnet`**, which needs no API key and no account: it
 > looks up every claimed settlement on a public Casper mainnet node and fails if any one of them did
-> not execute. Mainnet is a config change, and we made it. The 301-settlement proof feed below stays
+> not execute. Mainnet is a config change (`NETWORKS`), not a rewrite. The 301-settlement proof feed below stays
 > on testnet, which is where the buildathon's deployed-contract criterion applies, and the two are
 > never mixed into one number.
 >
-> **Mainnet is now the default path.** The hosted server takes payment on both networks and lists
-> mainnet first, so an agent, the SDK or the MCP server that accepts any Casper network pays on
-> mainnet. Ask for `casper:casper-test` to run for free. `/impact` keeps one network at a time
-> (testnet by default, `?network=casper:casper` for mainnet), and the demo and faucet take a
-> `network` too.
+> **One server, either network.** A Sluice server takes payment on the networks listed in
+> `NETWORKS`, its default first. List `casper:casper,casper:casper-test` and an agent, the SDK or
+> the MCP server that accepts any Casper network pays on mainnet, while one that asks for
+> `casper:casper-test` runs for free. The public demo server takes testnet only, so a visitor's run
+> never moves real CSPR. `/impact` keeps one network at a time (testnet by default,
+> `?network=casper:casper` for mainnet), and the demo and faucet take a `network` too.
 
 > **Sluice runs its own x402 facilitator.** The public hosted facilitator builds the CEP-18 settle
 > call with the runtime argument named `value`, while the reference `Cep18X402` token's entry point
@@ -70,9 +71,9 @@ Agent (Casper ed25519 key)
 Sluice Resource Server  (Express + @x402/express + @make-software/casper-x402)
   │  StreamingMeter bills elapsed-seconds × rate  →  one settlement per tick
   ▼
-Casper x402 Facilitator  →  real CEP-18 transfer on casper:casper-test
+Casper x402 Facilitator  →  real CEP-18 transfer on casper:casper (mainnet) or casper:casper-test
   ▼
-/impact public proof feed  →  every tick, with a testnet.cspr.live explorer link
+/impact public proof feed  →  every tick, with its cspr.live explorer link
 ```
 
 The agent pays only for the seconds it actually consumes. **Stop consuming and the next tick never
@@ -194,7 +195,7 @@ hash proves nothing on its own.
 npm test
 ```
 
-13 tests, named after the claim each one defends. Seven of them assert against the real committed
+25 tests, named after the claim each one defends. Seven of them assert against the real committed
 on-chain ledger snapshot, so if the published numbers ever drift above what Casper actually shows,
 the suite fails instead of the over-claim shipping.
 
@@ -226,14 +227,16 @@ mode runs the *exact same* streaming logic with simulated settlement: no creds, 
 LIVE keep separate snapshot files, so simulated events never mix into the on-chain proof data.
 
 ### LIVE on Casper mainnet and testnet
-Fill the LIVE section of `.env` (a funded ed25519 account, and the CEP-18 token package on each
-network: `NETWORKS`, `ASSET_PACKAGE_MAINNET`, `ASSET_PACKAGE_TESTNET`) and set `MODE=live`:
+Fill the LIVE section of `.env` (a funded ed25519 account and the CEP-18 token package for each
+network) and set `MODE=live`. The template takes testnet only; to take mainnet as well, set
+`NETWORKS=casper:casper,casper:casper-test` and `ASSET_PACKAGE_MAINNET`, and your fee payer pays
+that gas:
 ```bash
 MODE=live npm run server
-MODE=live CLIENT_PRIVATE_KEY_PATH=keys/agent.pem npm run agent                                  # pays on mainnet
+MODE=live CLIENT_PRIVATE_KEY_PATH=keys/agent.pem npm run agent                                  # pays on the server's default network
 MODE=live CLIENT_PRIVATE_KEY_PATH=keys/agent.pem AGENT_NETWORK=casper:casper-test npm run agent # free, on testnet
 ```
-The server offers one payment option per network, mainnet first, and its own facilitator settles
+The server offers one payment option per network, in `NETWORKS` order, and its own facilitator settles
 each on that network's node with the same fee-payer key. An agent that names a network pays only
 there, and refuses a server that does not offer it. An older `.env` that sets `CAIP2_CHAIN_ID`
 keeps the agent on that network, so an existing testnet setup never starts spending on mainnet by
@@ -258,14 +261,15 @@ npx tsx examples/rent-a-stream.ts    # terminal 2: an SDK agent rents btc-usd an
 ```
 
 To pay the hosted server for real, `Sluice.connect({ mode: "live", keyPath, serverUrl: HOSTED_SERVER })`
-pays on mainnet; add `network: "casper:casper-test"` to pay on testnet instead. The SDK never picks
-the hosted server or a network for you without being asked: `serverUrl` defaults to localhost.
+pays on Casper testnet. Against a server that also takes mainnet, it pays on that server's default
+network, or on the one you name with `network`. The SDK never picks the hosted server or a network
+for you without being asked: `serverUrl` defaults to localhost.
 
 **MCP server** ([`mcp/`](mcp/README.md)): exposes the meter to any MCP-capable AI agent (Claude
 included) as tools: `list_streams`, `open_session`, `pay_tick`, `close_session`, `get_proof`. The
 LLM is the buyer; in live mode each `pay_tick` returns the real on-chain tx hash and its explorer
 link. Point it at the hosted server with `SLUICE_SERVER_URL=https://sluice-kff3.onrender.com`;
-`SLUICE_NETWORK` picks the network (the server's first offer, mainnet, when unset).
+`SLUICE_NETWORK` picks the network (the server's first offer when unset; testnet on the hosted server).
 
 ```bash
 claude mcp add sluice -- npx tsx mcp/server.ts
@@ -279,7 +283,7 @@ claude mcp add sluice -- npx tsx mcp/server.ts
 |---|---|
 | `GET /streams` | catalogue of metered streams (BTC/USD, ETH/USD, GPU telemetry) + per-second rate |
 | `POST /sessions` | open a metered session for a stream |
-| `POST /tick?session=<id>` | bill elapsed seconds and settle one payment (the per-second tick); the 402 offers mainnet first, then testnet |
+| `POST /tick?session=<id>` | bill elapsed seconds and settle one payment (the per-second tick); the 402 offers each network the server takes, its default first |
 | `POST /sessions/:id/close` | close the gate |
 | `GET /impact?network=` | cumulative totals + recent settlements for one network (JSON proof feed; testnet by default) |
 | `GET /faucet`, `POST /faucet` | X402 tokens for your own agent, per network (`{"address","network"}`) |
@@ -295,8 +299,13 @@ claude mcp add sluice -- npx tsx mcp/server.ts
 | `server/src/store.ts` | durable proof-feed store (periodic JSON snapshot) |
 | `server/src/index.ts` | Express resource server + session/tick routes + `/impact` |
 | `server/public/impact.html` | live proof-feed dashboard |
+| `server/src/demo.ts`, `server/public/demo.html` | judge-facing live demo console |
 | `agent/src/index.ts` | autonomous consuming agent (objective + budget, decides each tick) |
 | `agent/src/policy.ts` | agent policies: `trend-hunter`, `job-runner` (the agency) |
+| `contracts/sluice_registry` | `SluiceRegistry` Odra contract (stream terms + checkpoint anchoring) |
+| `scripts/verify-onchain.ts` | trustless verifier (re-derives totals from the Casper ledger) |
+| `scripts/volume.sh`, `scripts/economy.sh` | sustained-load + multi-agent economy runners |
+| `shared/types.ts` | wire types |
 | `sdk/` | `@sluice/x402` client SDK (budget-guarded autonomous streaming loop) |
 | `mcp/` | `sluice-mcp` MCP server (any MCP-capable LLM agent as the buyer) |
 
@@ -310,18 +319,13 @@ with your own Casper account hash and it sends them on-chain:
 
 ```bash
 curl -s https://sluice-kff3.onrender.com/faucet          # what it grants on each network, and how much is left today
-curl -s -X POST https://sluice-kff3.onrender.com/faucet   -H 'Content-Type: application/json'   -d '{"address":"00<your 64 hex account hash>","network":"casper:casper"}'
+curl -s -X POST https://sluice-kff3.onrender.com/faucet   -H 'Content-Type: application/json'   -d '{"address":"00<your 64 hex account hash>","network":"casper:casper-test"}'
 ```
 
 You get a real transaction hash back, and once it finalizes your agent can open a session and pay
-ticks like any other. `network` defaults to mainnet; use `casper:casper-test` for testnet tokens.
-One grant per address on each network, with per-client and daily caps (tighter on mainnet), because
-every grant spends real gas.
-| `server/src/demo.ts`, `server/public/demo.html` | judge-facing live demo console |
-| `contracts/sluice_registry` | `SluiceRegistry` Odra contract (stream terms + checkpoint anchoring) |
-| `scripts/verify-onchain.ts` | trustless verifier (re-derives totals from the Casper ledger) |
-| `scripts/volume.sh`, `scripts/economy.sh` | sustained-load + multi-agent economy runners |
-| `shared/types.ts` | wire types |
+ticks like any other. The hosted faucet grants testnet tokens; on a server that takes both networks,
+`network` picks which, its default first. One grant per address on each network, with per-client
+and daily caps, because every grant spends real gas.
 
 ## Tech
 
