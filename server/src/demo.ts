@@ -1,16 +1,18 @@
 /**
  * Judge-facing live demo runner.
  *
- * POST /demo/run?stream=<id> streams (SSE) one complete autonomous agent session, run server-side
- * against this very server. In LIVE mode each tick is a REAL x402 settlement on casper-test, with
- * the tx hash pushed to the browser as it lands. The viewer watches the actual thing happen: 402
- * challenge, EIP-712 signature, facilitator settle, on-chain transfer, and the agent closing its
- * own gate with a stated reason.
+ * POST /demo/run?stream=<id>&network=<caip2> streams (SSE) one complete autonomous agent session,
+ * run server-side against this very server. In LIVE mode each tick is a REAL x402 settlement, on
+ * Casper mainnet by default or on testnet when asked, with the tx hash pushed to the browser as it
+ * lands. The viewer watches the actual thing happen: 402 challenge, EIP-712 signature, facilitator
+ * settle, on-chain transfer, and the agent closing its own gate with a stated reason.
  *
  * Protections for a public deployment:
  *   - one demo session at a time (409 while busy)
- *   - a daily budget of LIVE sessions (the facilitator allows ~300 calls/day); when spent, the
- *     demo runs the same meter + policy code with simulated settlement, clearly labelled
+ *   - a daily budget of LIVE sessions per network: every mainnet settlement spends about 3.3 CSPR
+ *     of the fee payer's gas, so mainnet gets a smaller budget than testnet; when a network's
+ *     budget is spent, the demo runs the same meter + policy code with simulated settlement,
+ *     clearly labelled
  *   - live child failures fall back to the simulation path instead of a dead page
  */
 
@@ -24,16 +26,22 @@ import { Store } from "./store.ts";
 import { nextChunk } from "./feed.ts";
 import { policyForStream } from "../../agent/src/policy.ts";
 import { STREAMS, type ServerConfig } from "./config.ts";
+import { MAINNET, TESTNET, labelFor } from "../../shared/networks.ts";
 
 const BUDGET_FILE = "server/.data/demo-budget.json";
-const LIVE_SESSIONS_PER_DAY = parseInt(process.env.DEMO_LIVE_SESSIONS_PER_DAY || "8", 10);
+/** Live demo sessions per UTC day, per network. A mainnet session of 6 ticks spends about 20 CSPR. */
+const SESSIONS_PER_DAY: Record<string, number> = {
+  [MAINNET]: parseInt(process.env.DEMO_MAINNET_SESSIONS_PER_DAY || "4", 10),
+  [TESTNET]: parseInt(process.env.DEMO_LIVE_SESSIONS_PER_DAY || "8", 10),
+};
 const DEMO_TICK_MS = parseInt(process.env.DEMO_TICK_MS || "2000", 10);
 const DEMO_MAX_TICKS = parseInt(process.env.DEMO_MAX_TICKS || "6", 10);
 const DEMO_BUDGET_X402 = process.env.DEMO_BUDGET_X402 || "0.05";
 
 interface DayBudget {
   day: string;
-  liveSessions: number;
+  /** Live sessions run today, per network. */
+  sessions: Record<string, number>;
 }
 
 function todayUTC(): string {
@@ -42,10 +50,11 @@ function todayUTC(): string {
 
 function readBudget(): DayBudget {
   try {
-    const b = JSON.parse(readFileSync(BUDGET_FILE, "utf8")) as DayBudget;
-    if (b.day === todayUTC()) return b;
+    const b = JSON.parse(readFileSync(BUDGET_FILE, "utf8")) as Partial<DayBudget> & { liveSessions?: number };
+    // Files written before networks were counted held one testnet number.
+    if (b.day === todayUTC()) return { day: b.day, sessions: b.sessions ?? { [TESTNET]: b.liveSessions ?? 0 } };
   } catch {}
-  return { day: todayUTC(), liveSessions: 0 };
+  return { day: todayUTC(), sessions: {} };
 }
 
 function writeBudget(b: DayBudget): void {
@@ -55,8 +64,10 @@ function writeBudget(b: DayBudget): void {
   } catch {}
 }
 
-export function demoBudgetLeft(): number {
-  return Math.max(0, LIVE_SESSIONS_PER_DAY - readBudget().liveSessions);
+const usedOn = (b: DayBudget, network: string) => b.sessions[network] ?? 0;
+
+export function demoBudgetLeft(network: string): number {
+  return Math.max(0, (SESSIONS_PER_DAY[network] ?? 0) - usedOn(readBudget(), network));
 }
 
 /** Strip terminal glyphs from agent CLI output so the web console stays clean. */
@@ -77,7 +88,7 @@ type Send = (event: string, data: unknown) => void;
  * so the exit code alone cannot tell a healthy live run from one where settlement never completed.
  * Only a tick that really settled prints an explorer link, so counting those is the honest signal.
  */
-function runLiveChild(streamId: string, port: number, send: Send): Promise<{ code: number; settled: number }> {
+function runLiveChild(streamId: string, port: number, network: string, send: Send): Promise<{ code: number; settled: number }> {
   return new Promise((resolve) => {
     let settled = 0;
     const child = spawn(
@@ -88,6 +99,7 @@ function runLiveChild(streamId: string, port: number, send: Send): Promise<{ cod
           ...process.env,
           MODE: "live",
           SERVER_URL: `http://localhost:${port}`,
+          AGENT_NETWORK: network,
           AGENT_STREAM: streamId,
           AGENT_TICK_MS: String(DEMO_TICK_MS),
           AGENT_MAX_TICKS: String(DEMO_MAX_TICKS),
@@ -106,8 +118,9 @@ function runLiveChild(streamId: string, port: number, send: Send): Promise<{ cod
         buf = buf.slice(i + 1);
         const line = cleanLine(raw);
         if (!line.trim()) continue;
-        // Enrich tick lines with the full explorer link for the UI.
-        const tx = /https:\/\/testnet\.cspr\.live\/deploy\/([0-9a-f]{64})/.exec(raw);
+        // Enrich tick lines with the full explorer link for the UI (cspr.live for mainnet,
+        // testnet.cspr.live for testnet).
+        const tx = /https:\/\/(?:testnet\.)?cspr\.live\/deploy\/([0-9a-f]{64})/.exec(raw);
         if (tx) {
           settled++;
           send("tick", { line, txHash: tx[1], explorerUrl: tx[0] });
@@ -182,11 +195,19 @@ export function mountDemo(app: Express, cfg: ServerConfig, liveReady: boolean): 
 
   let busy = false;
 
+  // Mainnet first: the network a demo runs on unless the viewer picks another.
+  const networks = cfg.networks.map((n) => n.id);
+  const defaultNetwork = networks[0] ?? TESTNET;
+
   app.get("/demo/status", (_req, res) => {
+    const left = Object.fromEntries(networks.map((n) => [n, liveReady ? demoBudgetLeft(n) : 0]));
     res.json({
       liveReady,
       busy,
-      liveSessionsLeftToday: liveReady ? demoBudgetLeft() : 0,
+      networks,
+      defaultNetwork,
+      liveSessionsLeftToday: left[defaultNetwork] ?? 0,
+      liveSessionsLeftByNetwork: left,
       streams: STREAMS.map((s) => ({ id: s.id, title: s.title, provider: s.provider, ratePerSecond: s.ratePerSecond })),
     });
   });
@@ -195,6 +216,10 @@ export function mountDemo(app: Express, cfg: ServerConfig, liveReady: boolean): 
     const streamId = String(req.query.stream || "btc-usd");
     if (!STREAMS.some((s) => s.id === streamId)) {
       return res.status(400).json({ error: "unknown stream" });
+    }
+    const network = String(req.query.network || defaultNetwork);
+    if (networks.length && !networks.includes(network)) {
+      return res.status(400).json({ error: `network must be one of ${networks.join(", ")}` });
     }
     if (busy) {
       return res.status(409).json({ error: "a demo session is already running; try again in a minute" });
@@ -214,17 +239,19 @@ export function mountDemo(app: Express, cfg: ServerConfig, liveReady: boolean): 
 
     try {
       const budget = readBudget();
-      const canLive = liveReady && budget.liveSessions < LIVE_SESSIONS_PER_DAY;
+      const used = usedOn(budget, network);
+      const canLive = liveReady && used < (SESSIONS_PER_DAY[network] ?? 0);
       if (canLive) {
-        writeBudget({ day: budget.day, liveSessions: budget.liveSessions + 1 });
-        send("mode", { live: true, note: "real on-chain settlement on casper:casper-test" });
-        const { code, settled } = await runLiveChild(streamId, cfg.port, send);
+        writeBudget({ day: budget.day, sessions: { ...budget.sessions, [network]: used + 1 } });
+        send("mode", { live: true, network, note: `real on-chain settlement on ${labelFor(network)} (${network})` });
+        const { code, settled } = await runLiveChild(streamId, cfg.port, network, send);
         // A live run that settled nothing is not a demonstration of anything: show the full
         // mechanism via the simulated path instead of leaving the viewer on an empty session.
         // The live budget is only spent when a live run actually settled, so a later visitor
         // still gets a real on-chain attempt.
         if (code !== 0 || settled === 0) {
-          writeBudget({ day: budget.day, liveSessions: budget.liveSessions });
+          const now = readBudget();
+          writeBudget({ day: now.day, sessions: { ...now.sessions, [network]: Math.max(0, usedOn(now, network) - 1) } });
           send("mode", {
             live: false,
             note: "live settlement is not completing right now; continuing in simulation so the full metering loop is still visible",
@@ -235,7 +262,7 @@ export function mountDemo(app: Express, cfg: ServerConfig, liveReady: boolean): 
         send("mode", {
           live: false,
           note: liveReady
-            ? "today's live on-chain demo budget is spent; running the same meter + policy code with simulated settlement"
+            ? `today's live demo budget on ${labelFor(network)} is spent; running the same meter + policy code with simulated settlement`
             : "facilitator unavailable; running the same meter + policy code with simulated settlement",
         });
         await runSimulated(streamId, simMeter, send);

@@ -10,6 +10,7 @@
  */
 import { config as loadEnv } from "dotenv";
 import type { Session, SettlementEvent, StreamSpec } from "../../shared/types.ts";
+import { explorerFor, networkSelector } from "../../shared/networks.ts";
 import { policyForStream } from "./policy.ts";
 
 loadEnv();
@@ -22,11 +23,11 @@ const TICK_MS = parseInt(process.env.AGENT_TICK_MS || "1000", 10);
 const MAX_TICKS = parseInt(process.env.AGENT_MAX_TICKS || "20", 10);
 // Spend ceiling for the whole session — the agent will not authorize a tick that breaches it.
 const BUDGET_X402 = parseFloat(process.env.AGENT_BUDGET_X402 || "0.08");
-// cspr.live hosts mainnet; testnet lives on its own subdomain.
-const EXPLORER =
-  (process.env.CAIP2_CHAIN_ID || "casper:casper-test") === "casper:casper"
-    ? "https://cspr.live"
-    : "https://testnet.cspr.live";
+// Which network to pay on. Unset, the agent pays with the server's first Casper offer, which is
+// mainnet on a Sluice server; set AGENT_NETWORK=casper:casper-test for free test runs. An older
+// .env's CAIP2_CHAIN_ID is honoured too, so a setup that always paid on testnet never starts
+// spending on mainnet just because the server added it.
+const NETWORK = process.env.AGENT_NETWORK || process.env.CAIP2_CHAIN_ID || "";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const fmt = (units: string) => (Number(BigInt(units)) / 1e9).toFixed(6);
@@ -34,7 +35,7 @@ const fmt = (units: string) => (Number(BigInt(units)) / 1e9).toFixed(6);
 type TickFetch = (url: string, init?: RequestInit) => Promise<Response>;
 
 /** Build the payment-wrapped fetch + agent identity for LIVE mode. */
-async function buildLive(): Promise<{ tickFetch: TickFetch; agentId: string; readTx: (r: Response) => string }> {
+async function buildLive(): Promise<{ tickFetch: TickFetch; agentId: string; readTx: (r: Response) => { tx: string; network: string } }> {
   const { x402Client, x402HTTPClient, wrapFetchWithPayment } = await import("@x402/fetch");
   const { createClientCasperSigner } = await import("@make-software/casper-x402");
   const { ExactCasperScheme } = await import("@make-software/casper-x402/exact/client");
@@ -47,15 +48,25 @@ async function buildLive(): Promise<{ tickFetch: TickFetch; agentId: string; rea
   const algo = process.env.CLIENT_KEY_ALGO === "secp256k1" ? KeyAlgorithm.SECP256K1 : KeyAlgorithm.ED25519;
   const signer = await createClientCasperSigner(keyPath, algo);
 
-  const selector = (_v: number, options: any[]) => options.find((o) => o.network.startsWith("casper:")) ?? options[0];
-  const client = new x402Client(selector).register("casper:*", new ExactCasperScheme(signer));
+  // Remember which offer was paid, so a receipt without a network still links the right explorer.
+  let chosen = NETWORK;
+  const select = networkSelector(NETWORK || undefined);
+  const selector = (version: number, options: { network: string }[]) => {
+    const picked = select(version, options);
+    chosen = picked.network;
+    return picked;
+  };
+  const client = new x402Client(selector as never).register("casper:*", new ExactCasperScheme(signer));
   const httpClient = new x402HTTPClient(client);
   const tickFetch = wrapFetchWithPayment(fetch, client) as TickFetch;
 
   return {
     tickFetch,
     agentId: signer.accountAddress(),
-    readTx: (r) => httpClient.getPaymentSettleResponse((n: string) => r.headers.get(n))?.transaction ?? "",
+    readTx: (r) => {
+      const settled = httpClient.getPaymentSettleResponse((n: string) => r.headers.get(n));
+      return { tx: settled?.transaction ?? "", network: String(settled?.network || chosen) };
+    },
   };
 }
 
@@ -111,12 +122,12 @@ async function main(): Promise<void> {
         const res = await liveBits.tickFetch(tickUrl, { method: "POST" });
         if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 120)}`);
         const body = (await res.json()) as { session: Session; data: unknown };
-        const txHash = liveBits.readTx(res);
+        const { tx: txHash, network } = liveBits.readTx(res);
         totalPaid = BigInt(body.session.totalPaid);
         chunk = body.data;
         console.log(
           `   ⛽ tick ${String(tick).padStart(2)} | total ${fmt(body.session.totalPaid)} ${spec.asset} | ` +
-            `${txHash ? "tx " + txHash.slice(0, 14) + "…  " + EXPLORER + "/deploy/" + txHash : "(settling)"}`,
+            `${txHash ? `${network} tx ${txHash.slice(0, 14)}…  ${explorerFor(network)}/deploy/${txHash}` : "(settling)"}`,
         );
       } else {
         const r = await jsonPost<{ session: Session; settlement: SettlementEvent; data: unknown }>(

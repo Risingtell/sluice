@@ -24,12 +24,22 @@
  */
 
 import type { ImpactSnapshot, Session, SettlementEvent, StreamSpec } from "../shared/types.ts";
+import { explorerFor, networkSelector } from "../shared/networks.ts";
+
+/** The hosted Sluice server: real providers, real settlement, Casper mainnet first. Pass it as serverUrl. */
+export const HOSTED_SERVER = "https://sluice-kff3.onrender.com";
 
 export interface SluiceConnectOptions {
-  /** Sluice resource server. Default http://localhost:4021. */
+  /** Sluice resource server. Default http://localhost:4021; HOSTED_SERVER for the hosted one. */
   serverUrl?: string;
   /** "mock" (default; no credentials) or "live" (real Casper x402 settlement). */
   mode?: "mock" | "live";
+  /**
+   * LIVE only: the network to pay on, "casper:casper" (mainnet) or "casper:casper-test". Unset, the
+   * SDK pays with the server's first Casper offer, which is mainnet on a Sluice server. When set, it
+   * pays only on that network and refuses a server that does not offer it.
+   */
+  network?: string;
   /** LIVE only: path to the agent's PEM-encoded Casper private key. */
   keyPath?: string;
   /** LIVE only: key algorithm. Default ed25519. */
@@ -79,20 +89,24 @@ export interface StreamSummary {
 
 type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
+type ReadSettlement = (r: Response) => { tx: string; network: string };
+
 export class Sluice {
   private constructor(
     private readonly serverUrl: string,
     private readonly tickFetch: FetchLike,
-    private readonly readTx: (r: Response) => string,
+    private readonly readTx: ReadSettlement,
     /** The agent's on-chain address (or a generated mock id). */
     public readonly agentId: string,
   ) {}
 
   static async connect(opts: SluiceConnectOptions = {}): Promise<Sluice> {
+    // A server is always named on purpose: live payments never go to the hosted server, or to
+    // mainnet, without the caller asking. Pass serverUrl: HOSTED_SERVER to use it.
     const serverUrl = (opts.serverUrl || "http://localhost:4021").replace(/\/$/, "");
     if (opts.mode !== "live") {
       const id = `sdk-${Math.random().toString(16).slice(2, 8)}`;
-      return new Sluice(serverUrl, fetch, () => "", id);
+      return new Sluice(serverUrl, fetch, () => ({ tx: "", network: "" }), id);
     }
     if (!opts.keyPath) throw new Error("live mode needs keyPath (PEM Casper private key)");
     const { x402Client, x402HTTPClient, wrapFetchWithPayment } = await import("@x402/fetch");
@@ -102,12 +116,21 @@ export class Sluice {
     const casperSdk = (casperMod as any).default ?? casperMod;
     const algo = opts.keyAlgo === "secp256k1" ? casperSdk.KeyAlgorithm.SECP256K1 : casperSdk.KeyAlgorithm.ED25519;
     const signer = await createClientCasperSigner(opts.keyPath, algo);
-    const selector = (_v: number, options: any[]) => options.find((o) => o.network.startsWith("casper:")) ?? options[0];
-    const client = new x402Client(selector).register("casper:*", new ExactCasperScheme(signer));
+    // Remember which offer was paid, so a receipt without a network still links the right explorer.
+    let chosen = opts.network ?? "";
+    const select = networkSelector(opts.network);
+    const selector = (version: number, options: { network: string }[]) => {
+      const picked = select(version, options);
+      chosen = picked.network;
+      return picked;
+    };
+    const client = new x402Client(selector as never).register("casper:*", new ExactCasperScheme(signer));
     const httpClient = new x402HTTPClient(client);
     const tickFetch = wrapFetchWithPayment(fetch, client) as FetchLike;
-    const readTx = (r: Response) =>
-      httpClient.getPaymentSettleResponse((n: string) => r.headers.get(n))?.transaction ?? "";
+    const readTx: ReadSettlement = (r) => {
+      const settled = httpClient.getPaymentSettleResponse((n: string) => r.headers.get(n));
+      return { tx: settled?.transaction ?? "", network: String(settled?.network || chosen) };
+    };
     return new Sluice(serverUrl, tickFetch, readTx, signer.accountAddress());
   }
 
@@ -128,15 +151,19 @@ export class Sluice {
    * Pay for one tick and receive the next chunk. In LIVE mode this performs the full x402
    * exchange: 402 challenge -> EIP-712 signature -> facilitator settle -> real on-chain transfer.
    */
-  async payTick(sessionId: string): Promise<{ session: Session; data: any; txHash: string }> {
+  async payTick(sessionId: string): Promise<{ session: Session; data: any; txHash: string; network: string; explorerUrl: string }> {
     const res = await this.tickFetch(`${this.serverUrl}/tick?session=${sessionId}`, { method: "POST" });
     if (!res.ok) {
       const body = await res.text();
       throw new Error(`tick unpaid (${res.status}): ${body.slice(0, 140)}`);
     }
     const body = (await res.json()) as { session: Session; settlement?: SettlementEvent; data: any };
-    const txHash = this.readTx(res) || body.settlement?.txHash || "";
-    return { session: body.session, data: body.data, txHash };
+    const settled = this.readTx(res);
+    const txHash = settled.tx || body.settlement?.txHash || "";
+    const network = settled.network || body.settlement?.network || "";
+    // An explorer link only for a real chain settlement whose network is known.
+    const explorerUrl = txHash && network.startsWith("casper:") ? `${explorerFor(network)}/deploy/${txHash}` : "";
+    return { session: body.session, data: body.data, txHash, network, explorerUrl };
   }
 
   /** Close the gate. */

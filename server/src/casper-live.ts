@@ -34,10 +34,10 @@ function sessionIdFrom(ctx: { getQueryParam?: HTTPReqCtx["getQueryParam"]; adapt
 
 export function mountCasperLive(app: Express, cfg: ServerConfig, meter: StreamingMeter): void {
   if (!cfg.facilitatorApiKey) throw new Error("LIVE mode requires FACILITATOR_API_KEY");
-  if (!cfg.assetPackage) throw new Error("LIVE mode requires ASSET_PACKAGE");
-
-  const chainID = cfg.network as Network;
-  const assetPackage = cfg.assetPackage.replace(/^hash-/, "");
+  if (!cfg.networks.length) throw new Error("LIVE mode requires at least one network");
+  for (const n of cfg.networks) {
+    if (!n.assetPackage) throw new Error(`LIVE mode requires a token package for ${n.id} (ASSET_PACKAGE_MAINNET / ASSET_PACKAGE_TESTNET)`);
+  }
 
   // Facilitator client — raw `Authorization: <key>` on every facilitator call (verified format).
   const auth = { Authorization: cfg.facilitatorApiKey };
@@ -47,16 +47,16 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
   };
   const facilitatorClient = new HTTPFacilitatorClient(facilitatorConfig);
 
-  // EIP-712 domain fields must match the deployed token exactly.
+  // EIP-712 domain fields must match the deployed token exactly. The token is the same reference
+  // contract on every network, deployed under the same name, so only its package hash differs.
   const tokenExtra = { name: cfg.assetName, symbol: "X402", version: "1", decimals: "9" };
-  const casperScheme = new ExactCasperScheme()
-    .registerAsset(chainID, assetPackage, 9)
-    .registerMoneyParser(() =>
-      Promise.resolve({ asset: assetPackage, amount: "0", extra: tokenExtra } as AssetAmount),
-    );
+  const casperScheme = new ExactCasperScheme().registerMoneyParser(() =>
+    Promise.resolve({ asset: cfg.networks[0].assetPackage, amount: "0", extra: tokenExtra } as AssetAmount),
+  );
+  for (const n of cfg.networks) casperScheme.registerAsset(n.id as Network, n.assetPackage, 9);
 
-  // cspr.live hosts mainnet; testnet lives on its own subdomain.
-  const explorerBase = chainID === "casper:casper" ? "https://cspr.live" : "https://testnet.cspr.live";
+  // Each settlement links to the explorer of the network it settled on.
+  const explorerOf = (network: string | undefined) => (cfg.networks.find((n) => n.id === network) ?? cfg.networks[0]).explorer;
 
   // Cache quotes per session so the challenge + signed retry settle the same amount. A quote is
   // only valid for one tick exchange; if an agent abandons a challenge (or a settle fails without
@@ -75,8 +75,9 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
     return q;
   };
 
-  const resourceServer = new x402ResourceServer(facilitatorClient)
-    .register(chainID, casperScheme)
+  const resourceServer = new x402ResourceServer(facilitatorClient);
+  for (const n of cfg.networks) resourceServer.register(n.id as Network, casperScheme);
+  resourceServer
     .onAfterSettle(async (sctx: any) => {
       const sessionId = sessionIdFrom(sctx?.transportContext?.request);
       if (!sessionId) return;
@@ -96,10 +97,12 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
         return;
       }
 
+      // The network the buyer chose, from the settle answer or the requirements it settled against.
+      const network: string = result?.network || sctx?.requirements?.network || cfg.networks[0].id;
       meter.commitTick(quote, {
         txHash,
-        network: chainID,
-        explorerUrl: txHash ? `${explorerBase}/deploy/${txHash}` : "",
+        network,
+        explorerUrl: txHash ? `${explorerOf(network)}/deploy/${txHash}` : "",
       });
     })
     .onSettleFailure(async (sctx: any) => {
@@ -114,8 +117,9 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
   // provider is paid at its own on-chain account (a real multi-party economy, not one treasury).
   const payTo = (ctx: any): string => meter.streamOf(sessionIdFrom(ctx))?.payTo ?? cfg.payTo;
 
-  // DynamicPrice: quote the tick (stable across challenge + retry).
-  const price = (ctx: any): AssetAmount => {
+  // DynamicPrice: quote the tick (stable across challenge + retry). One quote per tick, whichever
+  // network pays it; each network's offer names that network's token.
+  const priceOn = (assetPackage: string) => (ctx: any): AssetAmount => {
     const sessionId = sessionIdFrom(ctx);
     if (!sessionId) throw new MeterError(400, "missing ?session=");
     let quote = freshPending(sessionId);
@@ -130,7 +134,8 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
     paymentMiddleware(
       {
         "POST /tick": {
-          accepts: [{ scheme: "exact", price, network: chainID, payTo }],
+          // Mainnet first: a client that accepts any Casper network pays on mainnet.
+          accepts: cfg.networks.map((n) => ({ scheme: "exact" as const, price: priceOn(n.assetPackage), network: n.id as Network, payTo })),
           description: "One metered tick of a Sluice stream",
           mimeType: "application/json",
         },

@@ -64,6 +64,22 @@
       "amount": "25000000",
       "payTo": "00fc58cef2cb0adf3ade43868254aae8cfc4601f169e60c7ca6bf3a0f4aa85d491",
       "seconds": 10
+    },
+    {
+      "txHash": "ac972dd137e9392a5446807283c015a056b4540b39d3c91e31864b3b36f98b3c",
+      "streamId": "btc-usd",
+      "provider": "Lumen Markets",
+      "amount": "2523000",
+      "payTo": "00b76372880f98f0ddaf31257e32fb5b1b787a7bd9d20642dfac63b32ff7367a12",
+      "seconds": 2.523
+    },
+    {
+      "txHash": "4e060658fcf3de842cac756705bed8490e4a7847cf7d40dc1f895cbe090eabc9",
+      "streamId": "btc-usd",
+      "provider": "Lumen Markets",
+      "amount": "10000000",
+      "payTo": "00b76372880f98f0ddaf31257e32fb5b1b787a7bd9d20642dfac63b32ff7367a12",
+      "seconds": 10
     }
   ]
 }

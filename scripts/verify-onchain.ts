@@ -128,13 +128,18 @@ async function main() {
     // landed still hides under a bigger on-chain total. So match EVERY settlement row the feed
     // publishes to a real on-chain transfer by its deploy hash. A hash that is well-formed but
     // absent from the ledger (or that belongs to a reverted deploy) fails here.
+    // This ledger is the TESTNET token's, so only testnet rows can be matched against it. Mainnet
+    // settlements are checked by `npm run verify:mainnet`. Rows saved before networks were
+    // recorded are testnet.
+    const onTestnet = (e: { network?: string }) => !e.network || e.network === "casper:casper-test";
     const rows: Array<{ txHash?: string }> = [];
     let rowSource = "the 50 settlement rows published in the proof feed";
     try {
       const canonical = JSON.parse(readFileSync("server/.data/impact.json", "utf8"));
-      if (Array.isArray(canonical.events) && canonical.events.length) {
-        rows.push(...canonical.events);
-        rowSource = `all ${canonical.events.length} settlement rows in the local proof history`;
+      const testnetRows = Array.isArray(canonical.events) ? canonical.events.filter(onTestnet) : [];
+      if (testnetRows.length) {
+        rows.push(...testnetRows);
+        rowSource = `all ${testnetRows.length} testnet settlement rows in the local proof history`;
       }
     } catch {}
     if (!rows.length) rows.push(...(feed.recent || []));

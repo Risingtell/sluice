@@ -23,18 +23,19 @@ import { Router, type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
 import { x402Facilitator } from "@x402/core/facilitator";
 import { createFacilitatorCasperSigner, registerExactCasperFacilitatorScheme } from "@make-software/casper-x402";
+import { TESTNET, parseNetworks, rpcFor, rpcOverride } from "../../shared/networks.ts";
 
 export interface FacilitatorOptions {
-  /** PEM key that sponsors settlement gas. */
+  /** PEM key that sponsors settlement gas, on every network served. */
   keyPath: string;
-  /** CAIP-2 networks to serve, e.g. ["casper:casper-test"]. */
+  /** CAIP-2 networks to serve, e.g. ["casper:casper", "casper:casper-test"]. */
   networks: string[];
-  /** Gas ceiling per settlement, in motes. A settle consumes roughly 2.8 CSPR. */
+  /** Gas ceiling per settlement, in motes. A settle consumes roughly 2.7 CSPR. */
   paymentMotes: number;
   /** Shared secret required on every route except /health. Empty disables the gate. */
   secret?: string;
-  /** Override the JSON-RPC endpoint. */
-  rpcUrl?: string;
+  /** JSON-RPC endpoint overrides per network; a network without one uses its public node. */
+  rpcUrls?: Record<string, string | undefined>;
   /** Only settle transfers of these CEP-18 package hashes. Empty allows any. */
   allowedAssets: Set<string>;
   /** Only settle payments to these account addresses. Empty allows any. */
@@ -45,10 +46,7 @@ const lower = (s: string) => s.trim().toLowerCase();
 
 /** JSON-RPC endpoint for a network, overridable so a private node can be used. */
 export function resolveRpc(network: string, override?: string): string {
-  if (override) return override;
-  return network === "casper:casper"
-    ? "https://node.mainnet.casper.network/rpc"
-    : "https://node.testnet.casper.network/rpc";
+  return override || rpcFor(network);
 }
 
 interface Requirements {
@@ -60,18 +58,22 @@ interface Requirements {
 export async function createFacilitatorRouter(
   opts: FacilitatorOptions,
 ): Promise<{ router: Router; feePayer: string[] }> {
-  const signer = await createFacilitatorCasperSigner(
-    opts.keyPath,
-    undefined,
-    resolveRpc(opts.networks[0], opts.rpcUrl),
-  );
-
+  if (!opts.networks.length) throw new Error("the facilitator needs at least one network");
+  // A signer sends every transaction to the one RPC node it was built with, so each network gets
+  // its own signer (same key, its own node) and its own registration. One signer for both would
+  // submit mainnet settlements to the testnet node.
   const facilitator = new x402Facilitator();
-  registerExactCasperFacilitatorScheme(facilitator as never, {
-    signer,
-    networks: opts.networks as never,
-    limitedPaymentMotes: opts.paymentMotes,
-  });
+  let signer: Awaited<ReturnType<typeof createFacilitatorCasperSigner>> | undefined;
+  for (const network of opts.networks) {
+    const s = await createFacilitatorCasperSigner(opts.keyPath, undefined, resolveRpc(network, opts.rpcUrls?.[network]));
+    registerExactCasperFacilitatorScheme(facilitator as never, {
+      signer: s,
+      networks: [network] as never,
+      limitedPaymentMotes: opts.paymentMotes,
+    });
+    signer ??= s;
+  }
+  if (!signer) throw new Error("no facilitator signer");
 
   /** Refuse anything outside the allowlists, before it can spend a mote of our gas. */
   const screen = (requirements: Requirements | undefined): string | undefined => {
@@ -167,24 +169,26 @@ export async function createFacilitatorRouter(
 }
 
 /** Build the allowlists and options from environment, shared by standalone and mounted use. */
-export function facilitatorOptionsFromEnv(): FacilitatorOptions {
+export function facilitatorOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): FacilitatorOptions {
   const listFromEnv = (name: string, fallback: string) =>
-    new Set((process.env[name] || fallback).split(",").map(lower).filter(Boolean));
+    new Set((env[name] || fallback).split(",").map(lower).filter(Boolean));
+  // The facilitator serves whatever the server sells on, unless told otherwise.
+  const networks = parseNetworks(env.FACILITATOR_NETWORKS || env.NETWORKS || env.CAIP2_CHAIN_ID || TESTNET);
+  // FACILITATOR_RPC_URL keeps working for a single network; with two, each takes its own variable.
+  const rpcUrls: Record<string, string | undefined> = Object.fromEntries(networks.map((n) => [n, rpcOverride(n, env, networks.length)]));
+  const assets = [env.ASSET_PACKAGE, env.ASSET_PACKAGE_MAINNET, env.ASSET_PACKAGE_TESTNET].map((a) => (a || "").replace(/^hash-/, "")).filter(Boolean).join(",");
 
   return {
-    keyPath: process.env.FACILITATOR_KEY_PATH || process.env.CLIENT_PRIVATE_KEY_PATH || "keys/agent.pem",
-    networks: (process.env.FACILITATOR_NETWORKS || "casper:casper-test")
-      .split(",")
-      .map((n) => n.trim())
-      .filter(Boolean),
-    paymentMotes: parseInt(process.env.FACILITATOR_PAYMENT_MOTES || "5000000000", 10),
-    secret: process.env.FACILITATOR_SHARED_SECRET || process.env.FACILITATOR_API_KEY || "",
-    rpcUrl: process.env.FACILITATOR_RPC_URL,
-    allowedAssets: listFromEnv("FACILITATOR_ALLOWED_ASSETS", process.env.ASSET_PACKAGE || ""),
+    keyPath: env.FACILITATOR_KEY_PATH || env.CLIENT_PRIVATE_KEY_PATH || "keys/agent.pem",
+    networks,
+    paymentMotes: parseInt(env.FACILITATOR_PAYMENT_MOTES || "5000000000", 10),
+    secret: env.FACILITATOR_SHARED_SECRET || env.FACILITATOR_API_KEY || "",
+    rpcUrls,
+    allowedAssets: listFromEnv("FACILITATOR_ALLOWED_ASSETS", assets),
     allowedPayees: listFromEnv(
       "FACILITATOR_ALLOWED_PAYEES",
       [
-        process.env.PAYEE_ADDRESS,
+        env.PAYEE_ADDRESS,
         "00b76372880f98f0ddaf31257e32fb5b1b787a7bd9d20642dfac63b32ff7367a12",
         "0044f9e67c672341bcbcf5f444aa1541072d442526f644196d73eac124c737ad67",
         "00fc58cef2cb0adf3ade43868254aae8cfc4601f169e60c7ca6bf3a0f4aa85d491",

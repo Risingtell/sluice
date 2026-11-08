@@ -107,7 +107,9 @@ async function call(entry: string, args: InstanceType<typeof Args>) {
 
 async function sync() {
   const data = JSON.parse(readFileSync(process.env.SNAPSHOT_PATH || "server/.data/impact.json", "utf8"));
-  const ev = data.events || [];
+  // The registry lives on testnet and anchors the testnet proof feed, so mainnet settlements are
+  // never added in. Rows saved before networks were recorded are testnet.
+  const ev = (data.events || []).filter((e: any) => !e.network || e.network === "casper:casper-test");
   for (const st of STREAMS) {
     await call("register_stream", Args.fromMap({
       stream_id: CLValue.newCLString(st.id),

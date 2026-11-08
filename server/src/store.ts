@@ -81,8 +81,23 @@ export class Store {
     this.dirty = true;
   }
 
-  recentEvents(limit: number): SettlementEvent[] {
-    return this.events.slice(-limit).reverse();
+  /** Mainnet and testnet are never mixed into one number. Rows saved before networks were recorded are testnet. */
+  private on(e: SettlementEvent, network?: string): boolean {
+    return !network || (e.network || "casper:casper-test") === network;
+  }
+
+  recentEvents(limit: number, network?: string): SettlementEvent[] {
+    return this.events.filter((e) => this.on(e, network)).slice(-limit).reverse();
+  }
+
+  /** Settlements recorded per network. */
+  settlementsByNetwork(): Map<string, number> {
+    const out = new Map<string, number>();
+    for (const e of this.events) {
+      const n = e.network || "casper:casper-test";
+      out.set(n, (out.get(n) ?? 0) + 1);
+    }
+    return out;
   }
 
   activeSessionCount(): number {
@@ -91,13 +106,16 @@ export class Store {
     return n;
   }
 
-  /** Cumulative totals across all settlements ever recorded. */
-  totals(): { settlements: number; totalPaid: bigint; uniqueAgents: number; uniqueProviders: number; secondsStreamed: number } {
+  /** Cumulative totals across every settlement ever recorded, on one network when given. */
+  totals(network?: string): { settlements: number; totalPaid: bigint; uniqueAgents: number; uniqueProviders: number; secondsStreamed: number } {
     let totalPaid = 0n;
     let secondsStreamed = 0;
+    let settlements = 0;
     const agents = new Set<string>();
     const providers = new Set<string>();
     for (const e of this.events) {
+      if (!this.on(e, network)) continue;
+      settlements++;
       totalPaid += BigInt(e.amount);
       secondsStreamed += e.seconds;
       agents.add(e.agent);
@@ -106,7 +124,7 @@ export class Store {
       // keeps the stat consistent with the Provider column on the dashboard.
       providers.add(this.streams.get(e.streamId)?.provider ?? e.payTo);
     }
-    return { settlements: this.events.length, totalPaid, uniqueAgents: agents.size, uniqueProviders: providers.size, secondsStreamed };
+    return { settlements, totalPaid, uniqueAgents: agents.size, uniqueProviders: providers.size, secondsStreamed };
   }
 
   /** Recent autonomous gate-closures: agents that closed their own stream, newest first. */

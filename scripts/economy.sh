@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Sluice multi-agent economy runner.
+# Sluice multi-agent economy runner. Pays on TESTNET (AGENT_NETWORK defaults to casper:casper-test);
+# agent2 to agent5 hold no mainnet X402.
 #
 # Launches N independent, AUTONOMOUS consumer agents — each with its own funded Casper wallet, its
 # own objective, and its own budget. Every stream pays its OWN provider treasury. Each agent decides
@@ -24,7 +25,7 @@ run_agent() {
   local key="$1" budget="$2"
   for ((r = 0; r < ROUNDS; r++)); do
     for s in "${STREAMS[@]}"; do
-      MODE=live SERVER_URL="$SERVER_URL" AGENT_STREAM="$s" \
+      MODE=live SERVER_URL="$SERVER_URL" AGENT_NETWORK="${AGENT_NETWORK:-casper:casper-test}" AGENT_STREAM="$s" \
         AGENT_TICK_MS="$TICK_MS" AGENT_MAX_TICKS="$CAP" AGENT_BUDGET_X402="$budget" \
         CLIENT_PRIVATE_KEY_PATH="keys/${key}.pem" CLIENT_KEY_ALGO=ed25519 \
         npx tsx agent/src/index.ts 2>&1 | sed "s/^/[$key→$s] /"

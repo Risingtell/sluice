@@ -10,8 +10,11 @@
  *   npx tsx mcp/server.ts
  *
  * Env:
- *   SLUICE_SERVER_URL   target Sluice server (default http://localhost:4021)
+ *   SLUICE_SERVER_URL   target Sluice server (default http://localhost:4021; the hosted one is
+ *                       https://sluice-kff3.onrender.com)
  *   SLUICE_MODE         mock | live (default mock; live needs the key below)
+ *   SLUICE_NETWORK      casper:casper (mainnet) | casper:casper-test; unset pays with the
+ *                       server's first Casper offer, which is mainnet on a Sluice server
  *   CLIENT_PRIVATE_KEY_PATH  PEM Casper key that signs live payments
  *   CLIENT_KEY_ALGO     ed25519 (default) | secp256k1
  *
@@ -26,14 +29,15 @@ import { Sluice } from "../sdk/index.ts";
 
 loadEnv();
 
-const SERVER_URL = process.env.SLUICE_SERVER_URL || "http://localhost:4021";
 const MODE = process.env.SLUICE_MODE === "live" ? "live" : "mock";
+const SERVER_URL = process.env.SLUICE_SERVER_URL || "http://localhost:4021";
 
 let sluicePromise: Promise<Sluice> | null = null;
 function sluice(): Promise<Sluice> {
   sluicePromise ??= Sluice.connect({
     serverUrl: SERVER_URL,
     mode: MODE,
+    network: process.env.SLUICE_NETWORK || undefined,
     keyPath: process.env.CLIENT_PRIVATE_KEY_PATH,
     keyAlgo: process.env.CLIENT_KEY_ALGO === "secp256k1" ? "secp256k1" : "ed25519",
   });
@@ -116,7 +120,8 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           totalPaidMotes: t.session.totalPaid,
           ticks: t.session.ticks,
           txHash: t.txHash || null,
-          explorerUrl: t.txHash ? `https://testnet.cspr.live/deploy/${t.txHash}` : null,
+          network: t.network || null,
+          explorerUrl: t.explorerUrl || null,
         });
       }
       case "close_session":

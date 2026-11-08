@@ -1,9 +1,17 @@
 import { config as loadEnv } from "dotenv";
 import type { StreamSpec } from "../../shared/types.ts";
+import { MAINNET, TESTNET, explorerFor, parseNetworks } from "../../shared/networks.ts";
 
 loadEnv();
 
 export type Mode = "mock" | "live";
+
+/** A network this server accepts payment on, with the CEP-18 token package payments settle in there. */
+export interface NetworkSpec {
+  id: string;
+  assetPackage: string;
+  explorer: string;
+}
 
 export interface ServerConfig {
   port: number;
@@ -11,17 +19,46 @@ export interface ServerConfig {
   payTo: string;
   asset: string;
   assetName: string;
+  /** Token package on the default network. */
   assetPackage: string;
+  /** The default network (the first in `networks`), or "mock". */
   network: string;
+  /** Every network LIVE mode accepts payment on, default first. Empty in MOCK mode. */
+  networks: NetworkSpec[];
   facilitatorUrl: string;
   facilitatorApiKey: string;
   maxTickSeconds: number;
   snapshotPath: string;
 }
 
+/**
+ * Networks and their token packages. NETWORKS lists them, default first, for example
+ * "casper:casper,casper:casper-test", and each takes its own package from ASSET_PACKAGE_MAINNET or
+ * ASSET_PACKAGE_TESTNET. Without NETWORKS, the single-network settings (CAIP2_CHAIN_ID plus
+ * ASSET_PACKAGE) still work, so an existing .env keeps its behaviour.
+ */
+export function networksFromEnv(env: NodeJS.ProcessEnv = process.env): NetworkSpec[] {
+  const pkg = (v?: string) => (v || "").trim().replace(/^hash-/, "");
+  const ids = parseNetworks(env.NETWORKS);
+  if (!ids.length) {
+    const id = env.CAIP2_CHAIN_ID || TESTNET;
+    return [{ id, assetPackage: pkg(env.ASSET_PACKAGE), explorer: explorerFor(id) }];
+  }
+  const listed = ids.map((id) => {
+    const own = id === MAINNET ? env.ASSET_PACKAGE_MAINNET : id === TESTNET ? env.ASSET_PACKAGE_TESTNET : undefined;
+    return { id, assetPackage: pkg(own) || (ids.length === 1 ? pkg(env.ASSET_PACKAGE) : ""), explorer: explorerFor(id) };
+  });
+  // A network without its own token package is left out, loudly, rather than settling in another
+  // network's token or stopping the server: the rest keep working and /health shows what is on.
+  const missing = listed.filter((n) => !n.assetPackage).map((n) => n.id);
+  if (missing.length) console.warn(`   no token package for ${missing.join(", ")} (set ASSET_PACKAGE_MAINNET / ASSET_PACKAGE_TESTNET); not offering it`);
+  return listed.filter((n) => n.assetPackage);
+}
+
 export function loadConfig(): ServerConfig {
   const mode = (process.env.MODE === "live" ? "live" : "mock") as Mode;
   const assetName = process.env.ASSET_NAME || "X402";
+  const networks = mode === "live" ? networksFromEnv() : [];
   return {
     port: parseInt(process.env.PORT || "4021", 10),
     mode,
@@ -29,8 +66,9 @@ export function loadConfig(): ServerConfig {
     payTo: process.env.PAYEE_ADDRESS || "mock-treasury",
     asset: assetName,
     assetName,
-    assetPackage: (process.env.ASSET_PACKAGE || "").replace(/^hash-/, ""),
-    network: mode === "live" ? process.env.CAIP2_CHAIN_ID || "casper:casper-test" : "mock",
+    assetPackage: networks[0]?.assetPackage ?? "",
+    network: networks[0]?.id ?? "mock",
+    networks,
     facilitatorUrl: process.env.FACILITATOR_URL || "https://x402-facilitator.cspr.cloud",
     facilitatorApiKey: process.env.FACILITATOR_API_KEY || "",
     maxTickSeconds: parseInt(process.env.MAX_TICK_SECONDS || "10", 10),

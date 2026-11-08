@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Sluice volume runner: keeps N concurrent autonomous agents looping against the LIVE server,
 # producing REAL on-chain Casper x402 micro-settlements that accumulate in the /impact proof feed.
+# It pays on TESTNET (AGENT_NETWORK defaults to casper:casper-test): the proof feed is testnet's,
+# and a mainnet loop would spend real CSPR on every tick.
 #
 # Each worker runs the real agent (signs EIP-712 transfer_with_authorization per tick, settled by
 # the facilitator), then reopens a fresh session and repeats. Streams are rotated across workers.
@@ -27,6 +29,7 @@ worker() {
     echo "[w$idx][$stream] session #$n $(date -u +%H:%M:%S)"
     MODE=live \
     SERVER_URL=http://localhost:4021 \
+    AGENT_NETWORK="${AGENT_NETWORK:-casper:casper-test}" \
     AGENT_STREAM="$stream" \
     AGENT_TICK_MS="$TICK_MS" \
     AGENT_MAX_TICKS="$TICKS" \

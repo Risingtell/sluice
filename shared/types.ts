@@ -58,7 +58,7 @@ export interface SettlementEvent {
   asset: string;
   /** Seconds of consumption this tick covers. */
   seconds: number;
-  /** "mock" or "casper-test". */
+  /** "mock", or the CAIP-2 network it settled on: "casper:casper" (mainnet) or "casper:casper-test". */
   network: string;
   /** Settlement / deploy hash. Synthetic in MOCK mode, real CEP-18 transfer hash when live. */
   txHash: string;
@@ -94,7 +94,10 @@ export interface TickResponse {
 }
 
 export interface ImpactSnapshot {
+  /** The network these totals and rows are for. Networks are never mixed into one number. */
   network: string;
+  /** Every network this server takes payment on, default first, with its settlement count. */
+  networks?: { id: string; settlements: number }[];
   mock: boolean;
   totals: {
     settlements: number;
