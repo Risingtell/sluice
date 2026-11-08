@@ -102,8 +102,8 @@ the capital-efficient, autonomous behaviour Casper's agent-economy vision is bui
 | Per-provider routing | `DynamicPayTo`: each stream's ticks settle to that provider's own Casper account |
 | On-chain anchoring of terms + totals | Our own deployed `SluiceRegistry` contract (Odra), package `a7cbd09c...` |
 | Trustless audit | `npm run verify` re-derives every settlement from the Casper token ledger via cspr.cloud |
-| Any LLM agent as the buyer | `sluice-mcp` MCP server: an MCP-capable agent discovers, rents, and pays for streams itself |
-| Build your own consumer | `@sluice/x402` SDK (`sdk/`): budget-guarded autonomous streaming loop in a few lines |
+| Any LLM agent as the buyer | `sluice-mcp` MCP server on npm: an MCP-capable agent discovers, rents, and pays for streams itself |
+| Build your own consumer | `sluice-x402` SDK on npm (`sdk/`): budget-guarded autonomous streaming loop in a few lines |
 
 ---
 
@@ -252,8 +252,9 @@ Multi-agent economy run: `ROUNDS=1 TICK_MS=2500 bash scripts/economy.sh`.
 
 ## Consume Sluice from your own agent
 
-**SDK** ([`sdk/`](sdk/README.md)): the whole rent-and-pay loop in a few lines, with a budget guard
-and your own `decide()` policy as the agency. Runnable example:
+**SDK** ([`sluice-x402`](sdk/README.md) on npm): the whole rent-and-pay loop in a few lines, with a
+budget guard and your own `decide()` policy as the agency. `npm install sluice-x402` in your own
+project, or run the example from this repo:
 
 ```bash
 npm run server                       # terminal 1 (mock, zero creds)
@@ -265,15 +266,19 @@ pays on Casper testnet. Against a server that also takes mainnet, it pays on tha
 network, or on the one you name with `network`. The SDK never picks the hosted server or a network
 for you without being asked: `serverUrl` defaults to localhost.
 
-**MCP server** ([`mcp/`](mcp/README.md)): exposes the meter to any MCP-capable AI agent (Claude
+**MCP server** ([`sluice-mcp`](mcp/README.md) on npm): exposes the meter to any MCP-capable AI agent (Claude
 included) as tools: `list_streams`, `open_session`, `pay_tick`, `close_session`, `get_proof`. The
 LLM is the buyer; in live mode each `pay_tick` returns the real on-chain tx hash and its explorer
 link. Point it at the hosted server with `SLUICE_SERVER_URL=https://sluice-kff3.onrender.com`;
 `SLUICE_NETWORK` picks the network (the server's first offer when unset; testnet on the hosted server).
 
 ```bash
-claude mcp add sluice -- npx tsx mcp/server.ts
+claude mcp add sluice -- npx -y sluice-mcp
 ```
+
+Live mode against the hosted server adds `-e SLUICE_SERVER_URL=https://sluice-kff3.onrender.com
+-e SLUICE_MODE=live -e CLIENT_PRIVATE_KEY_PATH=<your key.pem>` before the `--`; see
+[`mcp/README.md`](mcp/README.md).
 
 ---
 
@@ -306,11 +311,13 @@ claude mcp add sluice -- npx tsx mcp/server.ts
 | `scripts/verify-onchain.ts` | trustless verifier (re-derives totals from the Casper ledger) |
 | `scripts/volume.sh`, `scripts/economy.sh` | sustained-load + multi-agent economy runners |
 | `shared/types.ts` | wire types |
-| `sdk/` | `@sluice/x402` client SDK (budget-guarded autonomous streaming loop) |
+| `sdk/` | `sluice-x402` client SDK (budget-guarded autonomous streaming loop) |
 | `mcp/` | `sluice-mcp` MCP server (any MCP-capable LLM agent as the buyer) |
+| `scripts/build-packages.mjs` | builds the two npm packages (`npm run build:packages`) |
 
-Both ship in this repo and are consumed from the clone (`npx tsx examples/rent-a-stream.ts`,
-`npx tsx mcp/server.ts`). They are not on npm yet, so do not try to install them from there.
+Both are on npm: `npm install sluice-x402` for the SDK, and `npx -y sluice-mcp` runs the MCP server.
+From a clone they also run straight from source (`npx tsx examples/rent-a-stream.ts`,
+`npx tsx mcp/server.ts`).
 
 ### Onboard your own agent (no need to ask us)
 

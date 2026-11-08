@@ -1,0 +1,50 @@
+{
+  "name": "sluice-x402",
+  "version": "0.1.0",
+  "description": "Pay per second for a continuous data stream, settled on-chain with Casper x402. Client SDK for the Sluice streaming meter.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/types/sdk/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/sdk/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prepack": "node ../scripts/build-packages.mjs sdk"
+  },
+  "dependencies": {
+    "@make-software/casper-x402": "^1.0.0",
+    "@x402/fetch": "2.16.0",
+    "casper-js-sdk": "^5.0.12"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "x402",
+    "casper",
+    "streaming-payments",
+    "pay-per-second",
+    "micropayments",
+    "ai-agents",
+    "cep-18"
+  ],
+  "author": "Oluwasogo \"Israel\" Ajala (Rising Technology)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Risingtell/sluice.git",
+    "directory": "sdk"
+  },
+  "homepage": "https://github.com/Risingtell/sluice/tree/master/sdk#readme",
+  "bugs": {
+    "url": "https://github.com/Risingtell/sluice/issues"
+  }
+}

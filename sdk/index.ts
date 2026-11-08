@@ -1,10 +1,10 @@
 /**
- * @sluice/x402 - client SDK for the Sluice streaming meter.
+ * sluice-x402 - client SDK for the Sluice streaming meter.
  *
  * Rent a continuously-metered resource and pay for it per second via Casper x402, from your own
  * agent, in a few lines:
  *
- *   import { Sluice } from "./sdk/index.ts";
+ *   import { Sluice } from "sluice-x402";
  *
  *   const sluice = await Sluice.connect({ serverUrl: "http://localhost:4021" });          // mock
  *   // const sluice = await Sluice.connect({ mode: "live", keyPath: "keys/agent.pem" }); // live
@@ -18,7 +18,7 @@
  *   });
  *
  * In LIVE mode every tick signs an EIP-712 `transfer_with_authorization` over the CEP-18 token
- * and the hosted Casper x402 facilitator settles it on-chain (the facilitator pays the gas). In
+ * and the server's Casper x402 facilitator settles it on-chain (the facilitator pays the gas). In
  * MOCK mode the same loop runs with simulated settlement. The decide() callback is the agency:
  * return keepStreaming=false and the sluice gate closes, ending payment instantly.
  */
@@ -36,8 +36,8 @@ export interface SluiceConnectOptions {
   mode?: "mock" | "live";
   /**
    * LIVE only: the network to pay on, "casper:casper" (mainnet) or "casper:casper-test". Unset, the
-   * SDK pays with the server's first Casper offer, which is mainnet on a Sluice server. When set, it
-   * pays only on that network and refuses a server that does not offer it.
+   * SDK pays with the server's first Casper offer (testnet on the hosted server). When set, it pays
+   * only on that network and refuses a server that does not offer it.
    */
   network?: string;
   /** LIVE only: path to the agent's PEM-encoded Casper private key. */
@@ -187,7 +187,9 @@ export class Sluice {
     const budgetX402 = opts.budgetX402 ?? 0.05;
     const maxTicks = opts.maxTicks ?? 10;
     const tickMs = opts.tickMs ?? 2000;
-    const decide: Decide = opts.decide ?? ((_c, ctx) => ({ keepStreaming: ctx.tick < maxTicks, reason: "streaming" }));
+    const decide: Decide =
+      opts.decide ??
+      ((_c, ctx) => ({ keepStreaming: ctx.tick < maxTicks, reason: ctx.tick < maxTicks ? "streaming" : `reached ${maxTicks}-tick cap` }));
 
     const spec = (await this.listStreams()).find((s) => s.id === streamId);
     if (!spec) throw new Error(`stream ${streamId} not offered`);

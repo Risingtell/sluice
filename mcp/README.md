@@ -1,4 +1,4 @@
-# sluice-mcp - MCP server
+# sluice-mcp
 
 Exposes the Sluice streaming meter to **any MCP-capable AI agent** (Claude, or anything speaking
 the Model Context Protocol). The LLM becomes the buyer: it can discover metered streams, open a
@@ -15,26 +15,43 @@ gate with a stated reason. Machine-to-machine commerce as MCP tools.
 | `close_session` | close the sluice gate, stating why |
 | `get_proof` | read the public settlement proof feed |
 
-## Run
+## Register with Claude Code
+
+With a local Sluice server in mock mode (no keys, nothing is paid): run `npm run server` in a clone
+of [the repo](https://github.com/Risingtell/sluice), then
 
 ```bash
-npx tsx mcp/server.ts                    # stdio, mock mode against http://localhost:4021
+claude mcp add sluice -- npx -y sluice-mcp
 ```
 
-Environment:
+With the hosted server, paying real ticks on Casper testnet from your own account:
+
+```bash
+claude mcp add sluice \
+  -e SLUICE_SERVER_URL=https://sluice-kff3.onrender.com \
+  -e SLUICE_MODE=live \
+  -e CLIENT_PRIVATE_KEY_PATH=/path/to/your-casper-key.pem \
+  -- npx -y sluice-mcp
+```
+
+Then ask the agent to "rent the btc-usd stream with a 0.05 X402 budget and stop when you have
+three quotes" and watch it drive the meter itself. Any other MCP client runs the same command
+(`npx -y sluice-mcp`, stdio). Node 20 or newer.
+
+## Environment
 
 ```
-SLUICE_SERVER_URL=http://localhost:4021   # or the deployed server
+SLUICE_SERVER_URL=http://localhost:4021   # default; the hosted server is https://sluice-kff3.onrender.com
 SLUICE_MODE=mock                          # or live
+SLUICE_NETWORK=casper:casper-test         # live only, optional: the network to pay on
 CLIENT_PRIVATE_KEY_PATH=keys/agent.pem    # live only: the paying Casper account
 CLIENT_KEY_ALGO=ed25519
 ```
 
-## Register with Claude Code
+Mock mode needs a server in mock mode; nothing is signed or paid. In live mode the agent pays from
+your own Casper account: on the hosted server that is Casper testnet, and its faucet sends X402 test
+tokens to your account (see the
+[main README](https://github.com/Risingtell/sluice#onboard-your-own-agent-no-need-to-ask-us)).
 
-```bash
-claude mcp add sluice -- npx tsx mcp/server.ts
-```
-
-Then ask the agent to "rent the btc-usd stream with a 0.05 X402 budget and stop when you have
-three quotes" and watch it drive the meter itself.
+Built on the [`sluice-x402`](https://www.npmjs.com/package/sluice-x402) SDK. Source:
+[github.com/Risingtell/sluice](https://github.com/Risingtell/sluice). MIT.

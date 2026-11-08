@@ -10,6 +10,13 @@ keys/
 cloudflared.exe
 *.tunnel.log
 
+# npm package builds, made by scripts/build-packages.mjs when a package is packed
+sdk/dist/
+mcp/dist/
+sdk/LICENSE
+mcp/LICENSE
+*.tgz
+
 # internal working docs — never public (hackathon-ship skill rule)
 SUBMISSION.md
 DEMO_SCRIPT.md

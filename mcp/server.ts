@@ -7,7 +7,8 @@
  * MCP tools: the LLM is the buyer.
  *
  * Run (stdio):
- *   npx tsx mcp/server.ts
+ *   npx -y sluice-mcp            (from npm)
+ *   npx tsx mcp/server.ts        (from a clone of the repo)
  *
  * Env:
  *   SLUICE_SERVER_URL   target Sluice server (default http://localhost:4021; the hosted one is
@@ -19,7 +20,7 @@
  *   CLIENT_KEY_ALGO     ed25519 (default) | secp256k1
  *
  * Claude Code registration example:
- *   claude mcp add sluice -- npx tsx mcp/server.ts
+ *   claude mcp add sluice -- npx -y sluice-mcp
  */
 import { config as loadEnv } from "dotenv";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -27,7 +28,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { Sluice } from "../sdk/index.ts";
 
-loadEnv();
+// stdout carries the MCP protocol, so loading .env must never print to it.
+loadEnv({ quiet: true });
 
 const MODE = process.env.SLUICE_MODE === "live" ? "live" : "mock";
 const SERVER_URL = process.env.SLUICE_SERVER_URL || "http://localhost:4021";
@@ -97,7 +99,7 @@ const TOOLS = [
 ] as const;
 
 const server = new Server(
-  { name: "sluice-mcp", version: "1.0.0" },
+  { name: "sluice-mcp", version: "0.1.0" },
   { capabilities: { tools: {} } },
 );
 

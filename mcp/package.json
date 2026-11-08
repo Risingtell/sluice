@@ -1,0 +1,47 @@
+{
+  "name": "sluice-mcp",
+  "version": "0.1.0",
+  "description": "MCP server that lets any AI agent rent a metered data stream and pay for it per second with Casper x402 (Sluice).",
+  "type": "module",
+  "bin": {
+    "sluice-mcp": "dist/server.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prepack": "node ../scripts/build-packages.mjs mcp"
+  },
+  "dependencies": {
+    "@make-software/casper-x402": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@x402/fetch": "2.16.0",
+    "casper-js-sdk": "^5.0.12",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "x402",
+    "casper",
+    "ai-agents",
+    "streaming-payments",
+    "pay-per-second"
+  ],
+  "author": "Oluwasogo \"Israel\" Ajala (Rising Technology)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Risingtell/sluice.git",
+    "directory": "mcp"
+  },
+  "homepage": "https://github.com/Risingtell/sluice/tree/master/mcp#readme",
+  "bugs": {
+    "url": "https://github.com/Risingtell/sluice/issues"
+  }
+}
