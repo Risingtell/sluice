@@ -18,6 +18,8 @@ export interface StreamSpec {
   provider?: string;
   /** Casper address (00 + account-hash) the provider receives payment at. */
   payTo?: string;
+  /** No longer offered for new sessions; kept so the proof history still names its provider. */
+  retired?: boolean;
 }
 
 /** A live consumption session: one agent streaming one resource. */

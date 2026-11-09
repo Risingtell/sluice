@@ -32,7 +32,7 @@ const AGENTS = new Set([
 const PROVIDER_NAMES: Record<string, string> = {
   f581c612975f477715bb8cb466ec2d5a4f84f33c1277ad87d724314ed7c257d1: "Lumen Markets (BTC)",
   b76372880f98f0ddaf31257e32fb5b1b787a7bd9d20642dfac63b32ff7367a12: "Lumen Markets (BTC)",
-  "44f9e67c672341bcbcf5f444aa1541072d442526f644196d73eac124c737ad67": "Helios Feeds (ETH)",
+  "44f9e67c672341bcbcf5f444aa1541072d442526f644196d73eac124c737ad67": "Helios Feeds",
   fc58cef2cb0adf3ade43868254aae8cfc4601f169e60c7ca6bf3a0f4aa85d491: "NimbusGPU (GPU)",
 };
 

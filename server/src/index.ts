@@ -3,7 +3,7 @@ import express from "express";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { loadConfig, STREAMS } from "./config.ts";
+import { loadConfig, RETIRED_STREAMS, STREAMS } from "./config.ts";
 import { Store } from "./store.ts";
 import { StreamingMeter, MeterError } from "./meter.ts";
 import { MockSettlementProvider, type SettlementProvider } from "./settlement.ts";
@@ -27,7 +27,9 @@ if (process.env.AGENT_KEY_PEM && !existsSync(keyPath)) {
 }
 seedSnapshot(cfg.snapshotPath);
 
-const streams = new Map(STREAMS.map((s) => [s.id, s]));
+// Retired streams stay in the lookup so the proof history keeps their providers' names; /streams
+// and the meter offer only the live catalogue.
+const streams = new Map([...STREAMS, ...RETIRED_STREAMS].map((s) => [s.id, s]));
 const store = new Store(streams, cfg.snapshotPath);
 
 /**
@@ -152,7 +154,7 @@ if (cfg.mode === "live" && liveReady) {
         return res.status(402).json({ error: `tick unpaid — stream halted: ${(err as Error).message}` });
       }
       const { session, event } = meter.commitTick(quote, result);
-      const data = nextChunk(session.streamId, session.ticks);
+      const data = await nextChunk(session.streamId, session.ticks);
       const payload: TickResponse = { session, settlement: event, data };
       res.json(payload);
     } catch (err) {

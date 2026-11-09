@@ -87,33 +87,46 @@ export function trendHunter(opts: { thresholdPct?: number; patienceTicks?: numbe
 }
 
 /**
- * JobRunner — an agent renting GPU telemetry while a job runs. It pays for the duration of the job
- * (`targetTicks` of work) but aborts immediately if the GPU crosses a safety temperature, because
- * paying for an overheating box isn't worth it. Either way the agent closes the gate on its own.
+ * BlockWatcher: an agent watching Casper mainnet block production. It pays per second until it has
+ * seen `targetBlocks` new blocks, then closes the gate with the heights it saw. It stops early when
+ * the data is not worth paying for: the network looks stalled (the newest block is older than
+ * `maxBlockAgeSec`), or the feed has served stale readings for `maxStaleTicks` ticks in a row.
  */
-export function jobRunner(opts: { targetTicks?: number; maxTempC?: number } = {}): AgentPolicy {
-  const target = opts.targetTicks ?? 6;
-  const maxTemp = opts.maxTempC ?? 78;
+export function blockWatcher(opts: { targetBlocks?: number; maxBlockAgeSec?: number; maxStaleTicks?: number } = {}): AgentPolicy {
+  const target = opts.targetBlocks ?? 2;
+  const maxAge = opts.maxBlockAgeSec ?? 60;
+  const maxStale = opts.maxStaleTicks ?? 3;
+  let first: number | null = null;
+  let stale = 0;
   return {
-    name: "job-runner",
-    objective: `run job for ${target} ticks unless GPU > ${maxTemp}°C`,
+    name: "block-watcher",
+    objective: `see ${target} new Casper mainnet blocks`,
     decide(chunk, ctx) {
       const guard = budgetOk(ctx);
       if (guard) return guard;
-      const temp = Number(chunk?.tempC);
-      if (Number.isFinite(temp) && temp > maxTemp) {
-        return { keepStreaming: false, reason: `GPU ${temp}°C > ${maxTemp}°C — aborted job, gate closed` };
+      const height = Number(chunk?.height);
+      if (chunk?.live !== true || !Number.isFinite(height)) {
+        stale++;
+        if (stale >= maxStale) return { keepStreaming: false, reason: `feed not live for ${stale} ticks, stopped paying for stale data` };
+        return { keepStreaming: true, reason: "waiting for a fresh block reading" };
       }
-      if (ctx.tick >= target) {
-        return { keepStreaming: false, reason: `job complete (${target} ticks) — gate closed` };
+      stale = 0;
+      const age = Number(chunk?.secondsSinceBlock);
+      if (Number.isFinite(age) && age > maxAge) {
+        return { keepStreaming: false, reason: `no new block for ${age}s, network looks stalled, gate closed` };
       }
-      return { keepStreaming: true, reason: `job running (${Number.isFinite(temp) ? temp + "°C" : "…"})` };
+      if (first === null) first = height;
+      const seen = height - first;
+      if (seen >= target) {
+        return { keepStreaming: false, reason: `saw ${seen} new mainnet blocks (${first} to ${height}), objective met, gate closed` };
+      }
+      return { keepStreaming: true, reason: `watching block ${height} (${seen}/${target} new)` };
     },
   };
 }
 
 /** Pick a sensible default policy for a stream when one isn't named explicitly. */
 export function policyForStream(streamId: string, budgetX402: number): { policy: AgentPolicy } {
-  if (streamId === "gpu-telemetry") return { policy: jobRunner() };
+  if (streamId === "casper-blocks") return { policy: blockWatcher() };
   return { policy: trendHunter() };
 }

@@ -17,9 +17,9 @@ ROUNDS="${ROUNDS:-1}"
 CAP="${CAP:-12}" # hard safety cap; the policy normally closes earlier
 AGENTS=(agent agent2 agent3 agent4 agent5)
 BUDGETS=(0.10 0.03 0.12 0.04 0.15) # varied budgets → a realistic mix of close reasons
-STREAMS=(btc-usd eth-usd gpu-telemetry)
+STREAMS=(btc-usd eth-usd casper-blocks)
 
-echo "[economy] ${#AGENTS[@]} autonomous agents × ${#STREAMS[@]} providers | ${ROUNDS} round(s) @ ${TICK_MS}ms"
+echo "[economy] ${#AGENTS[@]} autonomous agents × ${#STREAMS[@]} streams | ${ROUNDS} round(s) @ ${TICK_MS}ms"
 
 run_agent() {
   local key="$1" budget="$2"

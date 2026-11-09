@@ -163,13 +163,15 @@ async function runSimulated(streamId: string, simMeter: StreamingMeter, send: Se
 
   let closeReason = `reached ${DEMO_MAX_TICKS}-tick cap`;
   let spent = 0n;
+  // Mainnet makes a block about every 8 s, so the block watcher needs longer ticks to see two new ones.
+  const simTickMs = streamId === "casper-blocks" ? 3000 : Math.min(DEMO_TICK_MS, 1200);
   for (let tick = 1; tick <= DEMO_MAX_TICKS; tick++) {
-    await new Promise((r) => setTimeout(r, Math.min(DEMO_TICK_MS, 1200)));
+    await new Promise((r) => setTimeout(r, simTickMs));
     const quote = simMeter.quoteTick(session.id);
     const result = await provider.settle(quote);
     const { session: s } = simMeter.commitTick(quote, result);
     spent = BigInt(s.totalPaid);
-    const data = nextChunk(streamId, s.ticks);
+    const data = await nextChunk(streamId, s.ticks);
     send("tick", {
       line: `tick ${tick} | paid ${(Number(quote.amount) / 1e9).toFixed(6)} X402 | total ${(Number(spent) / 1e9).toFixed(6)} | simulated settlement`,
       simulated: true,

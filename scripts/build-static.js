@@ -28,7 +28,7 @@ const agents = new Set();
 const providers = new Set();
 // Same provider-name mapping the server's stream catalogue uses — count distinct provider
 // businesses, not payout addresses (an address rotation is still the same provider).
-const PROVIDER_BY_STREAM = { "btc-usd": "Lumen Markets", "eth-usd": "Helios Feeds", "gpu-telemetry": "NimbusGPU" };
+const PROVIDER_BY_STREAM = { "btc-usd": "Lumen Markets", "eth-usd": "Helios Feeds", "casper-blocks": "Helios Feeds", "gpu-telemetry": "NimbusGPU" };
 for (const e of events) {
   totalPaid += BigInt(e.amount || "0");
   secondsStreamed += e.seconds || 0;
@@ -57,7 +57,7 @@ const snapshot = {
     .map((s) => ({
       agent: s.agent,
       streamId: s.streamId,
-      provider: { "btc-usd": "Lumen Markets", "eth-usd": "Helios Feeds", "gpu-telemetry": "NimbusGPU" }[s.streamId],
+      provider: PROVIDER_BY_STREAM[s.streamId],
       objective: s.objective,
       closedReason: s.closedReason,
       ticks: s.ticks,

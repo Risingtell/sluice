@@ -116,12 +116,13 @@ useful, or the budget would be breached, **the agent closes the sluice gate itse
 
 - **`trend-hunter`** (price feeds) streams until it sees a price move past its threshold (*signal
   found, objective met*), or gives up after its patience window to stop burning budget on a flat market.
-- **`job-runner`** (GPU telemetry) pays for the duration of a job but **aborts the instant the GPU
-  crosses a safety temperature**, because paying for an overheating box isn't worth it.
+- **`block-watcher`** (Casper mainnet block feed) pays until it has seen new mainnet blocks, and
+  **stops early if the network looks stalled or the feed goes stale**, because paying for data that
+  isn't moving isn't worth it.
 
 Those decisions are recorded and surfaced live on the `/impact` feed, e.g. *"signal: +0.45% move
-detected, objective met, gate closed"* or *"GPU 79C > 78C, aborted job, gate closed"*. The
-self-closing gate is a **decision**, not a timer.
+detected, objective met, gate closed"* or *"saw 2 new mainnet blocks (9530089 to 9530091), objective
+met, gate closed"*. The self-closing gate is a **decision**, not a timer.
 
 ---
 
@@ -167,7 +168,7 @@ over-claims; the on-chain ledger is the source of truth:
 ```
 ON-CHAIN (re-derived from the Casper token ledger):
   Lumen Markets (BTC) 251 settlements · 2.554535 X402
-  Helios Feeds (ETH)   54 settlements · 0.320515 X402
+  Helios Feeds         54 settlements · 0.320515 X402
   NimbusGPU (GPU)      41 settlements · 0.713094 X402
   TOTAL               346 settlements · 3.588144 X402
 
@@ -195,20 +196,21 @@ hash proves nothing on its own.
 npm test
 ```
 
-25 tests, named after the claim each one defends. Seven of them assert against the real committed
+40 tests, named after the claim each one defends. Seven of them assert against the real committed
 on-chain ledger snapshot, so if the published numbers ever drift above what Casper actually shows,
 the suite fails instead of the over-claim shipping.
 
 The stream *terms* and settlement *checkpoints* are also anchored on-chain in our deployed
 **`SluiceRegistry`** contract, so both the rules and the results live on Casper, not just our server.
 
-**A real multi-party economy.** Volume comes from **5 distinct funded agent wallets** streaming from a
-catalogue whose **3 streams each pay their own provider treasury**, so payments flow between
+**A real multi-party economy.** Volume comes from **5 distinct funded agent wallets** paying
+**3 provider treasuries** (Lumen Markets, Helios Feeds, NimbusGPU), so payments flow between
 independent on-chain parties (`uniqueAgents = 5`, `uniqueProviders = 3`), not one wallet paying itself.
-Every tx is verifiable on cspr.live. The price streams carry a **real market feed** (live BTC/ETH spot
-from CoinGecko), so agents act on genuine moves; GPU telemetry is an honestly-labelled simulation.
-(Honest note: this is Casper testnet. The payments, the multi-party settlement, and the price data
-are all real.)
+Every tx is verifiable on cspr.live. Every stream in today's catalogue carries **real data**: live
+BTC/ETH spot from CoinGecko, and live Casper mainnet blocks read from a public Casper node. The GPU
+telemetry stream in the history was a labelled simulation and is retired; its settlements stay in the
+feed. (Honest note: this is Casper testnet. The payments, the multi-party settlement, and the data are
+all real.)
 
 ---
 
@@ -280,13 +282,17 @@ Live mode against the hosted server adds `-e SLUICE_SERVER_URL=https://sluice-kf
 -e SLUICE_MODE=live -e CLIENT_PRIVATE_KEY_PATH=<your key.pem>` before the `--`; see
 [`mcp/README.md`](mcp/README.md).
 
+**Watch an AI agent do it:** [`docs/ai-agent-run.md`](docs/ai-agent-run.md) records Claude renting the
+Casper block stream through `npx -y sluice-mcp`. It paid 2 real testnet ticks and closed the gate
+itself once it had seen two new mainnet blocks.
+
 ---
 
 ## HTTP API
 
 | Method & path | What |
 |---|---|
-| `GET /streams` | catalogue of metered streams (BTC/USD, ETH/USD, GPU telemetry) + per-second rate |
+| `GET /streams` | catalogue of metered streams (BTC/USD, ETH/USD, Casper mainnet blocks) + per-second rate |
 | `POST /sessions` | open a metered session for a stream |
 | `POST /tick?session=<id>` | bill elapsed seconds and settle one payment (the per-second tick); the 402 offers each network the server takes, its default first |
 | `POST /sessions/:id/close` | close the gate |
@@ -306,7 +312,7 @@ Live mode against the hosted server adds `-e SLUICE_SERVER_URL=https://sluice-kf
 | `server/public/impact.html` | live proof-feed dashboard |
 | `server/src/demo.ts`, `server/public/demo.html` | judge-facing live demo console |
 | `agent/src/index.ts` | autonomous consuming agent (objective + budget, decides each tick) |
-| `agent/src/policy.ts` | agent policies: `trend-hunter`, `job-runner` (the agency) |
+| `agent/src/policy.ts` | agent policies: `trend-hunter`, `block-watcher` (the agency) |
 | `contracts/sluice_registry` | `SluiceRegistry` Odra contract (stream terms + checkpoint anchoring) |
 | `scripts/verify-onchain.ts` | trustless verifier (re-derives totals from the Casper ledger) |
 | `scripts/volume.sh`, `scripts/economy.sh` | sustained-load + multi-agent economy runners |

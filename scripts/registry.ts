@@ -24,7 +24,8 @@ const CALL_GAS = parseInt(process.env.CALL_CSPR || "5", 10) * 1_000_000_000;
 const STREAMS: { id: string; provider: string; rate: string }[] = [
   { id: "btc-usd", provider: "Lumen Markets", rate: "1000000" },
   { id: "eth-usd", provider: "Helios Feeds", rate: "800000" },
-  { id: "gpu-telemetry", provider: "NimbusGPU", rate: "2500000" },
+  { id: "gpu-telemetry", provider: "NimbusGPU", rate: "2500000" }, // retired 9 Nov 2026; history stays anchored
+  { id: "casper-blocks", provider: "Helios Feeds", rate: "500000" },
 ];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

@@ -5,10 +5,15 @@
  * Price streams (BTC/USD, ETH/USD) serve a REAL market price: a background poller pulls live spot
  * from CoinGecko every ~15s and caches it, so each tick returns a genuine quote (`source:"coingecko",
  * live:true`). If the upstream is briefly unreachable we fall back to a bounded random walk
- * (`live:false`) so a demo never stalls. GPU telemetry is an honestly-labelled simulation
- * (`source:"simulated"`) — the point Sluice proves is the per-second payment mechanism, and for the
- * price feeds the metered resource is now real.
+ * (`live:false`) so a demo never stalls.
+ *
+ * The Casper block feed serves REAL Casper mainnet blocks read from a public Casper node
+ * (`source:"casper-node"`). The node is read when a tick is paid, at most once every 3 seconds, so
+ * an idle server never touches it. It never invents a block: if the node cannot be reached, the
+ * last reading is served and marked `live:false` once it is 15 seconds old.
  */
+
+import { casperChunk, parseCasperBlock, type CasperBlock } from "./casper-block.ts";
 
 interface RealPrice {
   price: number;
@@ -67,21 +72,57 @@ function priceChunk(symbol: string, streamId: string, seed: number, tick: number
   return { symbol, price: syntheticPrice(streamId, seed), tick, ts: Date.now(), source: "synthetic", live: false };
 }
 
-export function nextChunk(streamId: string, tick: number): unknown {
+// ── Casper mainnet block feed ────────────────────────────────────────────────────────────────────
+
+const CASPER_RPC = process.env.CASPER_FEED_RPC || "https://node.mainnet.casper.network/rpc";
+/** Read the node again when the last reading is older than this (mainnet makes a block about every 8 s). */
+const CASPER_REFRESH_MS = 3000;
+
+let casperLatest: CasperBlock | undefined;
+let casperReading: Promise<void> | undefined;
+
+/**
+ * Read the latest block. Concurrent ticks share one request, and the timeout covers the whole
+ * answer, body included, so a node that stalls mid-answer can never wedge the feed.
+ */
+function readCasper(): Promise<void> {
+  casperReading ??= (async () => {
+    try {
+      const res = await fetch(CASPER_RPC, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "chain_get_block" }),
+        signal: AbortSignal.timeout(4000),
+      });
+      if (!res.ok) return;
+      const block = parseCasperBlock(((await res.json()) as { result?: unknown })?.result, Date.now());
+      if (!block) return;
+      if (!casperLatest || block.height >= casperLatest.height) casperLatest = block;
+      // A node one block behind still shows the network is alive: keep the newer block, now fresh.
+      else casperLatest = { ...casperLatest, fetchedAt: block.fetchedAt };
+    } catch {
+      /* keep the last reading; it is served as not live once it ages */
+    } finally {
+      casperReading = undefined;
+    }
+  })();
+  return casperReading;
+}
+
+/** The block is read when the tick is paid for, so the agent always gets the network as it is now. */
+async function nextCasperChunk(tick: number) {
+  if (!casperLatest || Date.now() - casperLatest.fetchedAt > CASPER_REFRESH_MS) await readCasper();
+  return casperChunk(casperLatest, tick, Date.now());
+}
+
+export async function nextChunk(streamId: string, tick: number): Promise<unknown> {
   switch (streamId) {
     case "btc-usd":
       return priceChunk("BTC/USD", "btc-usd", 81600, tick);
     case "eth-usd":
       return priceChunk("ETH/USD", "eth-usd", 2400, tick);
-    case "gpu-telemetry":
-      return {
-        gpu: "A100-80GB",
-        utilizationPct: Math.round(60 + Math.random() * 40),
-        tempC: Math.round(55 + Math.random() * 25),
-        tick,
-        ts: Date.now(),
-        source: "simulated",
-      };
+    case "casper-blocks":
+      return nextCasperChunk(tick);
     default:
       return { streamId, tick, ts: Date.now() };
   }

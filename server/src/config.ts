@@ -80,10 +80,12 @@ export function loadConfig(): ServerConfig {
 
 /**
  * The catalogue of metered streams Sluice offers. Rates are motes/second (1 CSPR = 1e9 motes).
- * Each stream is supplied by a DISTINCT provider whose `payTo` is that provider's own Casper
- * account — so settlements flow to independent on-chain parties, not one shared treasury. That is
+ * Each stream pays its provider's own Casper account (Helios Feeds sells two streams into one
+ * treasury), so settlements flow to independent on-chain parties, not one shared treasury. That is
  * what makes the /impact feed a real multi-party economy rather than one wallet paying itself.
  */
+const HELIOS_FEEDS = process.env.PAYEE_ETH || "0044f9e67c672341bcbcf5f444aa1541072d442526f644196d73eac124c737ad67";
+
 export const STREAMS: StreamSpec[] = [
   {
     id: "btc-usd",
@@ -102,15 +104,33 @@ export const STREAMS: StreamSpec[] = [
     ratePerSecond: "800000", // 0.0008 CSPR/s
     asset: "X402",
     provider: "Helios Feeds",
-    payTo: process.env.PAYEE_ETH || "0044f9e67c672341bcbcf5f444aa1541072d442526f644196d73eac124c737ad67",
+    payTo: HELIOS_FEEDS,
   },
+  {
+    id: "casper-blocks",
+    title: "Casper mainnet block feed",
+    description: "Live Casper mainnet blocks (height, era, transactions, block age) for agents watching the network.",
+    ratePerSecond: "500000", // 0.0005 CSPR/s
+    asset: "X402",
+    // Helios Feeds' second product, paid to the same treasury as its ETH/USD feed.
+    provider: "Helios Feeds",
+    payTo: HELIOS_FEEDS,
+  },
+];
+
+/**
+ * Streams no longer offered. They stay listed so settlements already in the proof history keep
+ * their provider's name; the meter refuses to open new sessions on them.
+ */
+export const RETIRED_STREAMS: StreamSpec[] = [
   {
     id: "gpu-telemetry",
     title: "GPU rental telemetry",
-    description: "Per-second telemetry for a rented A100 — pay only while the job runs.",
+    description: "Per-second telemetry for a rented A100 (a labelled simulation, retired 9 Nov 2026).",
     ratePerSecond: "2500000", // 0.0025 CSPR/s
     asset: "X402",
     provider: "NimbusGPU",
     payTo: process.env.PAYEE_GPU || "00fc58cef2cb0adf3ade43868254aae8cfc4601f169e60c7ca6bf3a0f4aa85d491",
+    retired: true,
   },
 ];

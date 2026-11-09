@@ -38,6 +38,10 @@ Then ask the agent to "rent the btc-usd stream with a 0.05 X402 budget and stop 
 three quotes" and watch it drive the meter itself. Any other MCP client runs the same command
 (`npx -y sluice-mcp`, stdio). Node 20 or newer.
 
+The first `npx -y sluice-mcp` downloads the package, which can take longer than a client's startup
+limit (30 seconds in Claude Code). Run it once in a terminal first and stop it when it prints
+`sluice-mcp ready`, or start Claude Code with `MCP_TIMEOUT=90000`.
+
 ## Environment
 
 ```

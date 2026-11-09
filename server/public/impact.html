@@ -100,6 +100,7 @@
       .pill.btc-usd { color: #ffd400; border-color: #ffd40033; background: #ffd40012; }
       .pill.eth-usd { color: #e8e8e8; border-color: #e8e8e833; background: #e8e8e810; }
       .pill.gpu-telemetry { color: #f5b301; border-color: #f5b30133; background: #f5b30112; }
+      .pill.casper-blocks { color: #ff5a5f; border-color: #ff5a5f33; background: #ff5a5f12; }
       .decisions { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1px; background: var(--line); }
       .dec { background: var(--panel); padding: 14px 18px; }
       .dec-top { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; flex-wrap: wrap; }
@@ -197,7 +198,7 @@
       let seenTx = new Set();
       let firstPaint = true;
 
-      function streamLabel(id) { return ({ "btc-usd": "BTC/USD", "eth-usd": "ETH/USD", "gpu-telemetry": "GPU telemetry" })[id] || id; }
+      function streamLabel(id) { return ({ "btc-usd": "BTC/USD", "eth-usd": "ETH/USD", "gpu-telemetry": "GPU telemetry", "casper-blocks": "Casper blocks" })[id] || id; }
 
       async function tick() {
         let s;

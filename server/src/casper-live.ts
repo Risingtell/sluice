@@ -146,14 +146,16 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
 
   // Runs after the middleware has verified payment. Settlement + commit happen just after this in
   // onAfterSettle; the agent reads the real tx hash from the PAYMENT-RESPONSE header.
-  app.post("/tick", (req: Request, res: Response) => {
+  app.post("/tick", async (req: Request, res: Response) => {
     const sessionId = sessionIdFrom({ getQueryParam: (n) => req.query[n] as string });
     try {
       if (!sessionId) throw new MeterError(400, "missing ?session=");
       const quote = freshPending(sessionId) ?? meter.quoteTick(sessionId);
-      const data = nextChunk(quote.session.streamId, quote.session.ticks + 1);
-      // settlement is recorded server-side via onAfterSettle; expose the pending tick + data here.
-      const payload: Partial<TickResponse> = { session: quote.session, data };
+      const data = await nextChunk(quote.session.streamId, quote.session.ticks + 1);
+      // Settlement runs after this handler and commits the tick in onAfterSettle, so report the
+      // session as it reads once this tick is paid. If settlement fails, the payment middleware
+      // answers 402 instead of this body.
+      const payload: Partial<TickResponse> = { session: meter.sessionAfter(quote), data };
       res.json(payload);
     } catch (err) {
       if (err instanceof MeterError) res.status(err.status).json({ error: err.message });

@@ -53,6 +53,7 @@ export class StreamingMeter {
 
   openSession(streamId: string, agent: string, opts: { policy?: string; objective?: string } = {}): Session {
     const stream = this.requireStream(streamId);
+    if (stream.retired) throw new MeterError(410, `stream ${streamId} is retired; GET /streams lists the live catalogue`);
     const now = Date.now();
     const session: Session = {
       id: randomUUID(),
@@ -78,6 +79,8 @@ export class StreamingMeter {
     if (session.status !== "active") throw new MeterError(409, `session is ${session.status}`);
 
     const stream = this.requireStream(session.streamId);
+    // A session opened before its stream was retired (and restored from a snapshot) is not billed.
+    if (stream.retired) throw new MeterError(410, `stream ${session.streamId} is retired`);
     const at = Date.now();
     const elapsedMs = Math.min(at - session.lastSettledAt, this.cfg.maxTickSeconds * 1000);
     const amount = (BigInt(stream.ratePerSecond) * BigInt(elapsedMs)) / 1000n;
@@ -85,6 +88,20 @@ export class StreamingMeter {
   }
 
   /** Record a paid tick: append the settlement event and advance the session up to quote.at. */
+  /**
+   * The session as it will read once this quote is paid: exactly what commitTick records. The live
+   * tick response shows it, because there the response is built before settlement commits the tick.
+   */
+  sessionAfter(quote: TickQuote): Session {
+    return {
+      ...quote.session,
+      lastSettledAt: quote.at,
+      settledMs: quote.session.settledMs + quote.elapsedMs,
+      ticks: quote.session.ticks + 1,
+      totalPaid: (BigInt(quote.session.totalPaid) + BigInt(quote.amount)).toString(),
+    };
+  }
+
   commitTick(quote: TickQuote, result: SettlementResult): { session: Session; event: SettlementEvent } {
     const session = this.store.getSession(quote.session.id);
     if (!session) throw new MeterError(404, "unknown session");

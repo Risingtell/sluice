@@ -16,7 +16,7 @@ cd "$(dirname "$0")/.."
 WORKERS="${WORKERS:-3}"
 TICK_MS="${TICK_MS:-2000}"
 TICKS="${TICKS:-12}"
-STREAMS=(btc-usd eth-usd gpu-telemetry)
+STREAMS=(btc-usd eth-usd casper-blocks)
 
 echo "[volume] starting $WORKERS workers | tick ${TICK_MS}ms | ${TICKS} ticks/session"
 

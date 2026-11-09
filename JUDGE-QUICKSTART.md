@@ -58,7 +58,7 @@ npm run verify
 npm test
 ```
 
-`npm run verify` re-derives the totals from the chain; `npm test` runs 25 tests named after the
+`npm run verify` re-derives the totals from the chain; `npm test` runs 40 tests named after the
 claims they defend, seven of which assert the published numbers against the real on-chain ledger
 snapshot. Both exit non-zero on failure.
 
@@ -117,9 +117,10 @@ With the mock server from step 3 still running:
 npx tsx examples/rent-a-stream.ts    # an SDK agent rents btc-usd, pays per tick, self-closes
 ```
 
-And Sluice speaks MCP: `npx tsx mcp/server.ts` exposes `list_streams` / `open_session` /
+And Sluice speaks MCP: `npx -y sluice-mcp` (on npm) exposes `list_streams` / `open_session` /
 `pay_tick` / `close_session` / `get_proof` to any MCP-capable AI agent, so an LLM can rent and
-pay for a stream itself. See [`sdk/README.md`](sdk/README.md) and [`mcp/README.md`](mcp/README.md).
+pay for a stream itself. [`docs/ai-agent-run.md`](docs/ai-agent-run.md) records Claude doing it, with
+its two testnet settlements. See [`sdk/README.md`](sdk/README.md) and [`mcp/README.md`](mcp/README.md).
 
 ## What each step proved
 
