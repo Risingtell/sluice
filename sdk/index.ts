@@ -24,7 +24,7 @@
  */
 
 import type { ImpactSnapshot, Session, SettlementEvent, StreamSpec } from "../shared/types.ts";
-import { explorerFor, networkSelector } from "../shared/networks.ts";
+import { explorerTxUrl, networkSelector } from "../shared/networks.ts";
 
 /** The hosted Sluice server: real providers, real on-chain settlement on Casper testnet. Pass it as serverUrl. */
 export const HOSTED_SERVER = "https://sluice-kff3.onrender.com";
@@ -70,12 +70,43 @@ export interface StreamOptions {
   budgetX402?: number;
   /** Hard tick cap (default 10) as a safety net under the policy. */
   maxTicks?: number;
-  /** Delay between ticks in ms (default 2000; keep >= 1500 for testnet finality). */
+  /**
+   * Pause before each tick, in ms (default 2000). This is a floor, not the tick rate: in LIVE mode
+   * every tick also waits for its own on-chain settlement (measured 4-11 s, about 7 s median, on
+   * Casper testnet), so ticks land roughly every settlement time + tickMs, and that, not one
+   * second, is the billing resolution in LIVE mode. Each tick bills the real time since the
+   * previous one, so time spent settling is billed once, in the next tick, never twice. The server
+   * caps a single tick (MAX_TICK_SECONDS, 10 s by default); time past the cap is not billed, in the
+   * buyer's favour. Watch it with onTick's settleMs and the summary's settlement stats.
+   */
   tickMs?: number;
   /** The agent's policy. Default: stream until maxTicks. */
   decide?: Decide;
   /** Called after every paid tick with the fresh chunk and settlement info. */
-  onTick?: (info: { tick: number; data: any; txHash: string; session: Session }) => void;
+  onTick?: (info: TickInfo) => void;
+}
+
+export interface TickInfo {
+  tick: number;
+  data: any;
+  /** The settlement's Casper 2.0 Version1 transaction hash (a synthetic hash in mock mode). */
+  transactionHash: string;
+  /** Same as transactionHash (older name, kept for existing code). */
+  txHash: string;
+  /**
+   * Wall time of the paid request, ms: the 402 challenge, signing, the data chunk and, in LIVE
+   * mode, the on-chain settlement, which is most of it.
+   */
+  settleMs: number;
+  /** Seconds of streaming this tick billed (time since the previous tick, server-capped). */
+  billedSeconds: number;
+  session: Session;
+}
+
+export interface SettlementTiming {
+  minMs: number;
+  medianMs: number;
+  maxMs: number;
 }
 
 export interface StreamSummary {
@@ -83,8 +114,35 @@ export interface StreamSummary {
   ticks: number;
   totalPaidMotes: bigint;
   closeReason: string;
-  /** Tx hashes of every on-chain settlement in this session (empty in mock mode). */
+  /** Version1 transaction hashes of every settlement in this session (synthetic in mock mode). */
+  transactionHashes: string[];
+  /** Same as transactionHashes (older name, kept for existing code). */
   txHashes: string[];
+  /** How long each paid tick took, end to end (settleMs). LIVE mode only; null in mock mode or with no paid tick. */
+  settlement: SettlementTiming | null;
+}
+
+export interface PaidTick {
+  session: Session;
+  data: any;
+  /** Casper 2.0 Version1 transaction hash: query it with info_get_transaction {"Version1": hash}. */
+  transactionHash: string;
+  /** Same as transactionHash (older name, kept for existing code). */
+  txHash: string;
+  network: string;
+  /** cspr.live /transaction/ link for a real settlement, "" otherwise. */
+  explorerUrl: string;
+  /** Wall time of the paid request, ms (challenge, signing, chunk and, in LIVE mode, settlement). */
+  settleMs: number;
+}
+
+/** min / median / max of a list of durations (null for an empty list). */
+export function timing(ms: number[]): SettlementTiming | null {
+  if (!ms.length) return null;
+  const s = [...ms].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  const median = s.length % 2 ? s[mid] : Math.round((s[mid - 1] + s[mid]) / 2);
+  return { minMs: s[0], medianMs: median, maxMs: s[s.length - 1] };
 }
 
 type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
@@ -98,6 +156,8 @@ export class Sluice {
     private readonly readTx: ReadSettlement,
     /** The agent's on-chain address (or a generated mock id). */
     public readonly agentId: string,
+    /** True when ticks settle on chain (LIVE mode). */
+    private readonly live: boolean = false,
   ) {}
 
   static async connect(opts: SluiceConnectOptions = {}): Promise<Sluice> {
@@ -131,7 +191,7 @@ export class Sluice {
       const settled = httpClient.getPaymentSettleResponse((n: string) => r.headers.get(n));
       return { tx: settled?.transaction ?? "", network: String(settled?.network || chosen) };
     };
-    return new Sluice(serverUrl, tickFetch, readTx, signer.accountAddress());
+    return new Sluice(serverUrl, tickFetch, readTx, signer.accountAddress(), true);
   }
 
   /** The catalogue of metered streams the server offers. */
@@ -151,7 +211,8 @@ export class Sluice {
    * Pay for one tick and receive the next chunk. In LIVE mode this performs the full x402
    * exchange: 402 challenge -> EIP-712 signature -> facilitator settle -> real on-chain transfer.
    */
-  async payTick(sessionId: string): Promise<{ session: Session; data: any; txHash: string; network: string; explorerUrl: string }> {
+  async payTick(sessionId: string): Promise<PaidTick> {
+    const started = Date.now();
     const res = await this.tickFetch(`${this.serverUrl}/tick?session=${sessionId}`, { method: "POST" });
     if (!res.ok) {
       const body = await res.text();
@@ -162,8 +223,9 @@ export class Sluice {
     const txHash = settled.tx || body.settlement?.txHash || "";
     const network = settled.network || body.settlement?.network || "";
     // An explorer link only for a real chain settlement whose network is known.
-    const explorerUrl = txHash && network.startsWith("casper:") ? `${explorerFor(network)}/deploy/${txHash}` : "";
-    return { session: body.session, data: body.data, txHash, network, explorerUrl };
+    const explorerUrl = network.startsWith("casper:") ? explorerTxUrl(network, txHash) : "";
+    const settleMs = Date.now() - started;
+    return { session: body.session, data: body.data, transactionHash: txHash, txHash, network, explorerUrl, settleMs };
   }
 
   /** Close the gate. */
@@ -197,6 +259,8 @@ export class Sluice {
 
     const session = await this.open(streamId);
     const txHashes: string[] = [];
+    const settleTimes: number[] = [];
+    let settledMsBefore = session.settledMs ?? 0;
     let ticks = 0;
     let totalPaid = 0n;
     let prevPaid = 0n;
@@ -213,7 +277,10 @@ export class Sluice {
         current = t.session;
         totalPaid = BigInt(current.totalPaid);
         if (t.txHash) txHashes.push(t.txHash);
-        opts.onTick?.({ tick: ticks, data, txHash: t.txHash, session: current });
+        settleTimes.push(t.settleMs);
+        const billedSeconds = Math.max(0, ((current.settledMs ?? 0) - settledMsBefore) / 1000);
+        settledMsBefore = current.settledMs ?? settledMsBefore;
+        opts.onTick?.({ tick: ticks, data, transactionHash: t.txHash, txHash: t.txHash, settleMs: t.settleMs, billedSeconds, session: current });
       } catch (err) {
         closeReason = `stream interrupted (${(err as Error).message.slice(0, 80)})`;
         break;
@@ -233,7 +300,7 @@ export class Sluice {
     }
 
     const closed = await this.close(session.id, closeReason);
-    return { session: closed, ticks, totalPaidMotes: totalPaid, closeReason, txHashes };
+    return { session: closed, ticks, totalPaidMotes: totalPaid, closeReason, transactionHashes: txHashes, txHashes: [...txHashes], settlement: this.live ? timing(settleTimes) : null };
   }
 
   private async post(path: string, body?: unknown): Promise<any> {

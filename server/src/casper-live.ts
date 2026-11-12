@@ -20,6 +20,7 @@ import type { ServerConfig } from "./config.ts";
 import { StreamingMeter, MeterError, type TickQuote } from "./meter.ts";
 import { nextChunk } from "./feed.ts";
 import type { TickResponse } from "../../shared/types.ts";
+import { explorerTxUrl } from "../../shared/networks.ts";
 
 interface HTTPReqCtx {
   path: string;
@@ -56,7 +57,6 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
   for (const n of cfg.networks) casperScheme.registerAsset(n.id as Network, n.assetPackage, 9);
 
   // Each settlement links to the explorer of the network it settled on.
-  const explorerOf = (network: string | undefined) => (cfg.networks.find((n) => n.id === network) ?? cfg.networks[0]).explorer;
 
   // Cache quotes per session so the challenge + signed retry settle the same amount. A quote is
   // only valid for one tick exchange; if an agent abandons a challenge (or a settle fails without
@@ -102,7 +102,7 @@ export function mountCasperLive(app: Express, cfg: ServerConfig, meter: Streamin
       meter.commitTick(quote, {
         txHash,
         network,
-        explorerUrl: txHash ? `${explorerOf(network)}/deploy/${txHash}` : "",
+        explorerUrl: explorerTxUrl(network, txHash),
       });
     })
     .onSettleFailure(async (sctx: any) => {

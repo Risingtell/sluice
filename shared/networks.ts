@@ -11,6 +11,14 @@ export const isMainnet = (network: string | undefined): boolean => network === M
 /** cspr.live hosts mainnet; testnet lives on its own subdomain. */
 export const explorerFor = (network: string | undefined): string => (isMainnet(network) ? "https://cspr.live" : "https://testnet.cspr.live");
 
+/**
+ * Explorer link for a settlement. Sluice settlements are Casper 2.0 Version1 transactions, not legacy
+ * deploys: cspr.live shows them under /transaction/, and over RPC only info_get_transaction with
+ * {"Version1": hash} finds them (info_get_deploy answers "No such deploy").
+ */
+export const explorerTxUrl = (network: string | undefined, transactionHash: string): string =>
+  transactionHash ? `${explorerFor(network)}/transaction/${transactionHash}` : "";
+
 export const rpcFor = (network: string | undefined): string =>
   isMainnet(network) ? "https://node.mainnet.casper.network/rpc" : "https://node.testnet.casper.network/rpc";
 

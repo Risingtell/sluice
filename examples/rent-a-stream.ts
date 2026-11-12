@@ -32,15 +32,16 @@ const summary = await sluice.stream("btc-usd", {
     keepStreaming: ctx.tick < 3,
     reason: ctx.tick < 3 ? `collected quote ${ctx.tick}: ${chunk.price}` : "have enough quotes, gate closed",
   }),
-  onTick: ({ tick, data, txHash }) =>
+  onTick: ({ tick, data, transactionHash, settleMs }) =>
     console.log(
       `  tick ${tick}: ${JSON.stringify(data)}` +
-        (txHash ? `\n    ${live ? "settled on-chain" : "simulated settlement"}: ${txHash}` : ""),
+        (transactionHash ? `\n    ${live ? `settled on-chain in ${settleMs} ms` : "simulated settlement"}: ${transactionHash}` : ""),
     ),
 });
 
 console.log(
   `done: ${summary.ticks} ticks, ${(Number(summary.totalPaidMotes) / 1e9).toFixed(6)} X402, ` +
     `closed because "${summary.closeReason}"` +
-    (summary.txHashes.length ? `, ${summary.txHashes.length} ${live ? "on-chain" : "simulated"} settlements` : ""),
+    (summary.transactionHashes.length ? `, ${summary.transactionHashes.length} ${live ? "on-chain" : "simulated"} settlements` : "") +
+    (summary.settlement ? ` (settlement ${summary.settlement.minMs}-${summary.settlement.maxMs} ms, median ${summary.settlement.medianMs})` : ""),
 );

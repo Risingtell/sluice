@@ -1,6 +1,6 @@
 {
   "name": "sluice-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server that lets any AI agent rent a metered data stream and pay for it per second with Casper x402 (Sluice).",
   "type": "module",
   "bin": {

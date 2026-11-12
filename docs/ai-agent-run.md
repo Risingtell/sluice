@@ -31,10 +31,10 @@ Then reply with a short table (tick, block height, seconds since block, transact
 - **Tool call:** `open_session` `{"streamId":"casper-blocks","objective":"Watch Casper mainnet until two new blocks appear after the first observed height, then stop paying."}`
 - **Result:** session `a623f394…` opened on `casper-blocks`
 - **Tool call:** `pay_tick` `{"sessionId":"a623f394-dd44-4c9f-9d7d-dc715f3d5f96"}`
-- **Result:** paid, block **9530195** (3s old, live true), [tx 54022666…](https://testnet.cspr.live/deploy/5402266664430811990ba0f08525478734525eb3592727ecd17c4c89bc03f7fc)
+- **Result:** paid, block **9530195** (3s old, live true), [tx 54022666…](https://testnet.cspr.live/transaction/5402266664430811990ba0f08525478734525eb3592727ecd17c4c89bc03f7fc)
 - > First height is 9,530,195, so I need to reach 9,530,197. Paying the next tick.
 - **Tool call:** `pay_tick` `{"sessionId":"a623f394-dd44-4c9f-9d7d-dc715f3d5f96"}`
-- **Result:** paid, block **9530197** (4s old, live true), [tx 2d456a9c…](https://testnet.cspr.live/deploy/2d456a9c6d646ce47f0b5d43cd39441283adfe61655b3723dfb6caf48b8ef41c)
+- **Result:** paid, block **9530197** (4s old, live true), [tx 2d456a9c…](https://testnet.cspr.live/transaction/2d456a9c6d646ce47f0b5d43cd39441283adfe61655b3723dfb6caf48b8ef41c)
 - > Height jumped from 9,530,195 to 9,530,197, so the chain has produced two new blocks. That meets the goal, so I'm closing the session.
 - **Tool call:** `close_session` `{"sessionId":"a623f394-dd44-4c9f-9d7d-dc715f3d5f96","reason":"Objective met: the chain went from height 9530195 to 9530197 (two new blocks) in 2 ticks, so further ticks would cost more without adding anything."}`
 - **Result:** session closed, 2 ticks
@@ -42,8 +42,8 @@ Then reply with a short table (tick, block height, seconds since block, transact
   > 
   > | Tick | Block height | Seconds since block | Transaction |
   > |---|---|---|---|
-  > | 1 | 9,530,195 | 3 | [540226…bc03f7fc](https://testnet.cspr.live/deploy/5402266664430811990ba0f08525478734525eb3592727ecd17c4c89bc03f7fc) |
-  > | 2 | 9,530,197 | 4 | [2d456a…b8ef41c](https://testnet.cspr.live/deploy/2d456a9c6d646ce47f0b5d43cd39441283adfe61655b3723dfb6caf48b8ef41c) |
+  > | 1 | 9,530,195 | 3 | [540226…bc03f7fc](https://testnet.cspr.live/transaction/5402266664430811990ba0f08525478734525eb3592727ecd17c4c89bc03f7fc) |
+  > | 2 | 9,530,197 | 4 | [2d456a…b8ef41c](https://testnet.cspr.live/transaction/2d456a9c6d646ce47f0b5d43cd39441283adfe61655b3723dfb6caf48b8ef41c) |
   > 
   > The second tick came about 17 seconds after the first, and in that time the height went up by two. I never received block 9,530,196 itself, only the height jump that shows it was produced. Both ticks reported `live: true`.
   > 
@@ -53,8 +53,8 @@ Then reply with a short table (tick, block height, seconds since block, transact
 
 | Tick | Mainnet block | Seconds since block | Settlement on Casper testnet |
 |---|---|---|---|
-| 1 | 9530195 | 3 | [54022666…](https://testnet.cspr.live/deploy/5402266664430811990ba0f08525478734525eb3592727ecd17c4c89bc03f7fc) |
-| 2 | 9530197 | 4 | [2d456a9c…](https://testnet.cspr.live/deploy/2d456a9c6d646ce47f0b5d43cd39441283adfe61655b3723dfb6caf48b8ef41c) |
+| 1 | 9530195 | 3 | [54022666…](https://testnet.cspr.live/transaction/5402266664430811990ba0f08525478734525eb3592727ecd17c4c89bc03f7fc) |
+| 2 | 9530197 | 4 | [2d456a9c…](https://testnet.cspr.live/transaction/2d456a9c6d646ce47f0b5d43cd39441283adfe61655b3723dfb6caf48b8ef41c) |
 
 **Closing reason, in Claude's words:** Objective met: the chain went from height 9530195 to 9530197 (two new blocks) in 2 ticks, so further ticks would cost more without adding anything.
 

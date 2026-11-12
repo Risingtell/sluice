@@ -62,8 +62,15 @@ export interface SettlementEvent {
   seconds: number;
   /** "mock", or the CAIP-2 network it settled on: "casper:casper" (mainnet) or "casper:casper-test". */
   network: string;
-  /** Settlement / deploy hash. Synthetic in MOCK mode, real CEP-18 transfer hash when live. */
+  /**
+   * The settlement's Casper 2.0 Version1 transaction hash (a real CEP-18 transfer when live,
+   * synthetic in MOCK mode). Look it up with info_get_transaction {"Version1": hash}, not
+   * info_get_deploy. Older name of `transactionHash`, which the API also returns; kept for
+   * existing clients and stored history.
+   */
   txHash: string;
+  /** Same value as txHash, under the name Casper 2.0 uses. Added to every API response, not stored. */
+  transactionHash?: string;
   /** Deep link to a block explorer when live; empty in MOCK mode. */
   explorerUrl: string;
   settledAt: number;

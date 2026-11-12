@@ -99,7 +99,7 @@ const TOOLS = [
 ] as const;
 
 const server = new Server(
-  { name: "sluice-mcp", version: "0.1.0" },
+  { name: "sluice-mcp", version: "0.2.0" },
   { capabilities: { tools: {} } },
 );
 
@@ -121,9 +121,11 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           data: t.data,
           totalPaidMotes: t.session.totalPaid,
           ticks: t.session.ticks,
+          transactionHash: t.transactionHash || null,
           txHash: t.txHash || null,
           network: t.network || null,
           explorerUrl: t.explorerUrl || null,
+          settleMs: t.settleMs,
         });
       }
       case "close_session":

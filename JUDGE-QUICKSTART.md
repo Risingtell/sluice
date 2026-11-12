@@ -32,8 +32,8 @@ The same meter and agent settle real per-second x402 payments on Casper **mainne
 - Our mainnet CEP-18 token:
   [`df101ac1...`](https://cspr.live/contract-package/df101ac1be4fd5f390ce02fa4b43f610818d08d96f3183e182e92d325bd85950)
 - 10 real mainnet settlements across 2 streams, blocks 8381075 to 9520138, e.g.
-  [`ad0587a9...`](https://cspr.live/deploy/ad0587a93caf6f50d682981b1a68c533b5d8ecc4878be62a5efd81d9e863e513)
-  from July and [`ac972dd1...`](https://cspr.live/deploy/ac972dd137e9392a5446807283c015a056b4540b39d3c91e31864b3b36f98b3c)
+  [`ad0587a9...`](https://cspr.live/transaction/ad0587a93caf6f50d682981b1a68c533b5d8ecc4878be62a5efd81d9e863e513)
+  from July and [`ac972dd1...`](https://cspr.live/transaction/ac972dd137e9392a5446807283c015a056b4540b39d3c91e31864b3b36f98b3c)
   from 8 November, through the same dual-network server code the demo runs
 - Verify all of them yourself, no key and no account needed:
 

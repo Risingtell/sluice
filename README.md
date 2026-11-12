@@ -29,8 +29,8 @@ now in [Casper Forward](https://forward.casper.network/teams).
 > [`df101ac1...`](https://cspr.live/contract-package/df101ac1be4fd5f390ce02fa4b43f610818d08d96f3183e182e92d325bd85950):
 > **10 real mainnet settlements** across 2 streams and 2 providers, blocks 8381075 to 9520138: 8 in
 > July, and 2 on 8 November through the current dual-network server code
-> ([`ac972dd1...`](https://cspr.live/deploy/ac972dd137e9392a5446807283c015a056b4540b39d3c91e31864b3b36f98b3c),
-> [`4e060658...`](https://cspr.live/deploy/4e060658fcf3de842cac756705bed8490e4a7847cf7d40dc1f895cbe090eabc9)).
+> ([`ac972dd1...`](https://cspr.live/transaction/ac972dd137e9392a5446807283c015a056b4540b39d3c91e31864b3b36f98b3c),
+> [`4e060658...`](https://cspr.live/transaction/4e060658fcf3de842cac756705bed8490e4a7847cf7d40dc1f895cbe090eabc9)).
 > Check them yourself with **`npm run verify:mainnet`**, which needs no API key and no account: it
 > looks up every claimed settlement on a public Casper mainnet node and fails if any one of them did
 > not execute. Mainnet is a config change (`NETWORKS`), not a rewrite. The 301-settlement proof feed below stays
@@ -147,10 +147,13 @@ curl -s http://localhost:4021/impact | jq '.totals'
 # => { "settlements": 301, "uniqueAgents": 5, "uniqueProviders": 3, "secondsStreamed": 2398, ... }
 
 # pull any recent settlement and open it on the block explorer
-curl -s http://localhost:4021/impact | jq '.recent[0] | {txHash, explorerUrl, amount, seconds}'
+curl -s http://localhost:4021/impact | jq '.recent[0] | {transactionHash, explorerUrl, amount, seconds}'
 ```
 
-Open any `explorerUrl` (`https://testnet.cspr.live/deploy/<txHash>`) and you'll see a real CEP-18
+These are Casper 2.0 **Version1 transactions**, not legacy deploys: over RPC, look one up with
+`info_get_transaction` and `{"Version1": "<transactionHash>"}` (`info_get_deploy` answers "No such
+deploy"). `txHash` carries the same value for older clients. Open any `explorerUrl`
+(`https://testnet.cspr.live/transaction/<transactionHash>`) and you'll see a real CEP-18
 transfer on `casper:casper-test`, gas paid by the facilitator's sponsored feePayer, the X402 token
 moving from the agent's account to the payee. The live dashboard at **`/impact.html`** renders the
 same feed.
@@ -247,8 +250,14 @@ surprise; set `AGENT_NETWORK` to choose. A mainnet settlement costs the fee paye
 Sustained load for the proof feed: `WORKERS=3 TICK_MS=2000 TICKS=12 bash scripts/volume.sh`.
 Multi-agent economy run: `ROUNDS=1 TICK_MS=2500 bash scripts/economy.sh`.
 
-> **Testnet tuning:** each on-chain settle finalizes in ~5-10s (testnet block time), so hold tick
-> cadence at 1.5s or more. `MAX_TICK_SECONDS` caps elapsed billing so a slow settle never over-bills.
+> **Timing, measured:** a paid tick waits for its own on-chain settlement, which an outside agent
+> measured at 4.0 s min / 7.0 s median / 11.1 s max on Casper testnet. So in live mode a tick lands
+> every settlement time + `TICK_MS`, and that, not one second, is the real billing resolution. Each
+> tick bills the actual time since the previous one, so the seconds spent settling are billed once,
+> in the next tick (never twice). `MAX_TICK_SECONDS` (default 10) caps any single tick; time past
+> the cap is not billed, in the buyer's favour. `TICK_MS` / the SDK's `tickMs` is a pause before
+> each tick, not a tick rate. The SDK reports each tick's `settleMs` and, in live mode, the
+> session's min/median/max.
 
 ---
 

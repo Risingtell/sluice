@@ -25,10 +25,11 @@ const summary = await sluice.stream("btc-usd", {
     keepStreaming: ctx.tick < 5 && chunk.price < 70000,
     reason: `price ${chunk.price}`,
   }),
-  onTick: ({ tick, txHash }) => console.log(`tick ${tick} settled: ${txHash}`),
+  onTick: ({ tick, transactionHash, settleMs }) =>
+    console.log(`tick ${tick} settled in ${settleMs} ms: ${transactionHash}`),
 });
 
-console.log(summary.closeReason, summary.txHashes);
+console.log(summary.closeReason, summary.transactionHashes, summary.settlement);
 ```
 
 Live mode pays real ticks from your own Casper account. Without running a server, use the hosted
@@ -56,7 +57,7 @@ Against a server that takes mainnet too, pass `network: "casper:casper"` or
 | `Sluice.connect(opts)` | build a client; `mode: "live"` wires the x402 payment signer |
 | `listStreams()` | the server's metered catalogue with per-second rates |
 | `open(streamId)` | open a session (free; only ticking costs) |
-| `payTick(sessionId)` | pay one tick, get the next chunk (+ real tx hash and explorer link when live) |
+| `payTick(sessionId)` | pay one tick, get the next chunk (+ `transactionHash`, explorer link and `settleMs` when live) |
 | `close(sessionId, reason)` | close the gate |
 | `stream(streamId, opts)` | the full autonomous loop: budget guard + your `decide()` policy |
 | `impact()` | the public proof feed |
@@ -64,6 +65,20 @@ Against a server that takes mainnet too, pass `network: "casper:casper"` or
 The `decide(chunk, ctx)` callback is the agency: it sees every freshly-paid-for chunk plus spend
 context (`tick`, `spentMotes`, `nextTickMotes`, `budgetMotes`) and returns whether the stream is
 still worth paying for.
+
+**Timing.** In live mode each tick waits for its own on-chain settlement: 4-11 s on Casper
+testnet, about 7 s median (measured by an outside agent). So ticks land every settlement time +
+`tickMs`, and that is the real billing resolution, not one second. `tickMs` (default 2000) is a
+pause before each tick, not a tick rate. Each tick bills the actual time since the previous one,
+so time spent settling is billed once, in the next tick. The server caps a single tick (10 s by
+default) and does not bill time past the cap. `onTick` gives each tick's `settleMs` (the whole paid
+request, mostly settlement) and `billedSeconds`; in live mode the summary's `settlement` holds
+min/median/max. In mock mode hashes are synthetic.
+
+**Hashes.** Settlements are Casper 2.0 Version1 transactions. Look one up over RPC with
+`info_get_transaction` and `{"Version1": hash}` (`info_get_deploy` answers "No such deploy").
+`transactionHash` / `transactionHashes` are the names to use; `txHash` / `txHashes` hold the same
+values for code written against 0.1.0.
 
 Source, server and the MCP server ([`sluice-mcp`](https://www.npmjs.com/package/sluice-mcp)):
 [github.com/Risingtell/sluice](https://github.com/Risingtell/sluice). MIT.

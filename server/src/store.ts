@@ -87,7 +87,17 @@ export class Store {
   }
 
   recentEvents(limit: number, network?: string): SettlementEvent[] {
-    return this.events.filter((e) => this.on(e, network)).slice(-limit).reverse();
+    return this.events
+      .filter((e) => this.on(e, network))
+      .slice(-limit)
+      .reverse()
+      .map((e) => ({
+        ...e,
+        transactionHash: e.txHash,
+        // Rows stored before Nov 2026 link cspr.live's legacy /deploy/ route. Every Sluice
+        // settlement is a Casper 2.0 Version1 transaction, which belongs under /transaction/.
+        explorerUrl: (e.explorerUrl || "").replace("cspr.live/deploy/", "cspr.live/transaction/"),
+      }));
   }
 
   /** Settlements recorded per network. */

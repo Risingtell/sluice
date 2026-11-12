@@ -1,6 +1,6 @@
 {
   "name": "sluice-x402",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pay per second for a continuous data stream, settled on-chain with Casper x402. Client SDK for the Sluice streaming meter.",
   "type": "module",
   "main": "./dist/index.js",

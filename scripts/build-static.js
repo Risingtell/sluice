@@ -49,7 +49,12 @@ const snapshot = {
     uniqueProviders: providers.size,
     secondsStreamed: Math.round(secondsStreamed),
   },
-  recent: events.slice(-50).reverse(),
+  // Same shape the server's /impact returns: transactionHash, and cspr.live's /transaction/ route
+  // (every Sluice settlement is a Casper 2.0 Version1 transaction; old rows stored /deploy/ links).
+  recent: events
+    .slice(-50)
+    .reverse()
+    .map((e) => ({ ...e, transactionHash: e.txHash, explorerUrl: e.explorerUrl.replace("cspr.live/deploy/", "cspr.live/transaction/") })),
   decisions: (raw.sessions ?? [])
     .filter((s) => s.closedReason && !/^tick unpaid|^stream interrupted|^stream halted/.test(s.closedReason))
     .sort((a, b) => (b.closedAt ?? 0) - (a.closedAt ?? 0))

@@ -20,7 +20,7 @@ import type { Express, Request, Response } from "express";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { ServerConfig } from "./config.ts";
-import { MAINNET, TESTNET, chainNameFor, explorerFor, labelFor, rpcFor, rpcOverride } from "../../shared/networks.ts";
+import { MAINNET, TESTNET, chainNameFor, explorerFor, explorerTxUrl, labelFor, rpcFor, rpcOverride } from "../../shared/networks.ts";
 
 /** One state file per network; testnet keeps the file it always had. */
 const TESTNET_STATE = process.env.FAUCET_STATE_PATH || "server/.data/faucet.json";
@@ -111,7 +111,8 @@ export function mountFaucet(app: Express, cfg: ServerConfig): void {
         error: `this address already received a grant on ${labelFor(network)}`,
         grantedAt: prior.at,
         txHash: prior.txHash,
-        explorerUrl: prior.txHash ? `${explorerFor(network)}/deploy/${prior.txHash}` : undefined,
+        transactionHash: prior.txHash,
+        explorerUrl: explorerTxUrl(network, prior.txHash) || undefined,
       };
     }
     if ((state.perIpToday[ip] ?? 0) >= limits.perIp) return { error: `daily limit reached for this client on ${labelFor(network)} (${limits.perIp} per day)` };
@@ -180,7 +181,6 @@ export function mountFaucet(app: Express, cfg: ServerConfig): void {
 
     // The same RPC overrides as the facilitator: per network, or FACILITATOR_RPC_URL for a single one.
     const client = new RpcClient(new HttpHandler(rpcOverride(network, process.env, networks.length) || rpcFor(network)));
-    const explorerBase = explorerFor(network);
 
     // Refuse rather than emit a deploy we cannot pay for.
     const blk: any = await client.getLatestBlock();
@@ -223,7 +223,8 @@ export function mountFaucet(app: Express, cfg: ServerConfig): void {
       asset: cfg.assetName,
       network,
       txHash,
-      explorerUrl: `${explorerBase}/deploy/${txHash}`,
+      transactionHash: txHash,
+      explorerUrl: explorerTxUrl(network, txHash),
       note: "settlement finalizes in a few seconds; then open a session and pay a tick",
     };
   }

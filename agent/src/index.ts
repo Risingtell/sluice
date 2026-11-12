@@ -10,7 +10,7 @@
  */
 import { config as loadEnv } from "dotenv";
 import type { Session, SettlementEvent, StreamSpec } from "../../shared/types.ts";
-import { explorerFor, networkSelector } from "../../shared/networks.ts";
+import { explorerFor, explorerTxUrl, networkSelector } from "../../shared/networks.ts";
 import { policyForStream } from "./policy.ts";
 
 loadEnv();
@@ -127,7 +127,7 @@ async function main(): Promise<void> {
         chunk = body.data;
         console.log(
           `   ⛽ tick ${String(tick).padStart(2)} | total ${fmt(body.session.totalPaid)} ${spec.asset} | ` +
-            `${txHash ? `${network} tx ${txHash.slice(0, 14)}…  ${explorerFor(network)}/deploy/${txHash}` : "(settling)"}`,
+            `${txHash ? `${network} tx ${txHash.slice(0, 14)}…  ${explorerTxUrl(network, txHash)}` : "(settling)"}`,
         );
       } else {
         const r = await jsonPost<{ session: Session; settlement: SettlementEvent; data: unknown }>(

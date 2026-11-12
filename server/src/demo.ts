@@ -120,7 +120,7 @@ function runLiveChild(streamId: string, port: number, network: string, send: Sen
         if (!line.trim()) continue;
         // Enrich tick lines with the full explorer link for the UI (cspr.live for mainnet,
         // testnet.cspr.live for testnet).
-        const tx = /https:\/\/(?:testnet\.)?cspr\.live\/deploy\/([0-9a-f]{64})/.exec(raw);
+        const tx = /https:\/\/(?:testnet\.)?cspr\.live\/(?:transaction|deploy)\/([0-9a-f]{64})/.exec(raw);
         if (tx) {
           settled++;
           send("tick", { line, txHash: tx[1], explorerUrl: tx[0] });
