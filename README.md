@@ -13,9 +13,11 @@ now in [Casper Forward](https://forward.casper.network/teams).
 **Demo video:** https://youtu.be/2j7Rlckm_0Q · **Live proof:** https://risingtell.github.io/sluice/ ·
 **Judge quickstart:** [JUDGE-QUICKSTART.md](JUDGE-QUICKSTART.md)
 
-> **It's live, and it's a real economy.** Sluice has settled **301 real per-second payments on
-> `casper:casper-test`** across **5 independent autonomous agents**, each with its own funded Casper
-> wallet, paying **3 distinct providers**. Every tick is a CEP-18 `transfer_with_authorization`
+> **It's live, and it's a real economy.** Sluice has settled **313 real per-second payments on
+> `casper:casper-test`** across **6 independent agents**, each with its own funded Casper wallet,
+> paying **3 distinct providers**. Five are our own autonomous agents; the sixth is
+> [Pico](https://pico-payment-casper.vercel.app)'s buyer, built and run by another Casper team, which
+> paid 8 ticks on 9 Nov 2026 with no changes on either side. Every tick is a CEP-18 `transfer_with_authorization`
 > signed by the agent's own key and finalized by the x402 facilitator, clickable through to
 > **testnet.cspr.live**. See the [`/impact`](#verify-it-yourself-no-trust-required) proof feed.
 >
@@ -33,7 +35,7 @@ now in [Casper Forward](https://forward.casper.network/teams).
 > [`4e060658...`](https://cspr.live/transaction/4e060658fcf3de842cac756705bed8490e4a7847cf7d40dc1f895cbe090eabc9)).
 > Check them yourself with **`npm run verify:mainnet`**, which needs no API key and no account: it
 > looks up every claimed settlement on a public Casper mainnet node and fails if any one of them did
-> not execute. Mainnet is a config change (`NETWORKS`), not a rewrite. The 301-settlement proof feed below stays
+> not execute. Mainnet is a config change (`NETWORKS`), not a rewrite. The 313-settlement proof feed below stays
 > on testnet, which is where the buildathon's deployed-contract criterion applies, and the two are
 > never mixed into one number.
 >
@@ -144,7 +146,7 @@ Every settlement Sluice has ever made is recorded with its real Casper transacti
 ```bash
 # top-line cumulative proof
 curl -s http://localhost:4021/impact | jq '.totals'
-# => { "settlements": 301, "uniqueAgents": 5, "uniqueProviders": 3, "secondsStreamed": 2398, ... }
+# => { "settlements": 313, "uniqueAgents": 6, "uniqueProviders": 3, "secondsStreamed": 2476, ... }
 
 # pull any recent settlement and open it on the block explorer
 curl -s http://localhost:4021/impact | jq '.recent[0] | {transactionHash, explorerUrl, amount, seconds}'
@@ -170,17 +172,18 @@ over-claims; the on-chain ledger is the source of truth:
 
 ```
 ON-CHAIN (re-derived from the Casper token ledger):
-  Lumen Markets (BTC) 251 settlements · 2.554535 X402
-  Helios Feeds         54 settlements · 0.320515 X402
-  NimbusGPU (GPU)      41 settlements · 0.713094 X402
-  TOTAL               346 settlements · 3.588144 X402
+  Helios Feeds         74 settlements · 0.381187 X402
+  Lumen Markets (BTC) 319 settlements · 3.017357 X402
+  NimbusGPU (GPU)      52 settlements · 0.900513 X402
+  Other payees          3 transfers   · 0.3 X402 (not providers, e.g. faucet top-ups)
+  TOTAL               445 settlements · 4.299056 X402
 
 PROOF FEED claims:
-  TOTAL               301 settlements · 3.205548 X402
+  TOTAL               313 settlements · 3.279725 X402
 
 ROW-LEVEL CHECK (each claimed settlement matched to an on-chain transfer by deploy hash):
-  checked 301 rows from all 301 settlement rows in the local proof history
-  all 301 matched
+  checked 313 rows from all 313 testnet settlement rows in the local proof history
+  all 313 matched
 
 VERIFIED: every settlement the feed claims is backed by a real on-chain transfer.
 ```

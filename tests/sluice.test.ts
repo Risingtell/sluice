@@ -22,6 +22,7 @@ const AGENTS = new Set([
   "fe0d626c926c6b97c8d5c1ea03de7400750ad909b87f81b25b9fe573dcaac4bb",
   "1e692c446427ea26b7cf5f855464d77cb3086b96d26ee470992d1ae6c8ced8ec",
   "cc40818d04421510aaf1e2d7e51fefbc4c00dd83d16b6bde4f7c03456764659b",
+  "74f57790338ce156e5b346bd71d5914fdb7a6150bc73ec44a28090d29dc93c5a", // outside agent: Pico's buyer
 ]);
 
 const ledger = (): LedgerAction[] => JSON.parse(readFileSync("data/onchain-actions.json", "utf8"));

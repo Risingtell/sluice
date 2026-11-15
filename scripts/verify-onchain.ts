@@ -26,6 +26,8 @@ const AGENTS = new Set([
   "fe0d626c926c6b97c8d5c1ea03de7400750ad909b87f81b25b9fe573dcaac4bb", // agent3
   "1e692c446427ea26b7cf5f855464d77cb3086b96d26ee470992d1ae6c8ced8ec", // agent4
   "cc40818d04421510aaf1e2d7e51fefbc4c00dd83d16b6bde4f7c03456764659b", // agent5
+  // Outside agents, built and run by other teams, that paid the hosted meter.
+  "74f57790338ce156e5b346bd71d5914fdb7a6150bc73ec44a28090d29dc93c5a", // Pico's buyer (Gomathi), 8 ticks on 9 Nov 2026
 ]);
 
 // Friendly labels for the provider treasuries that receive settlements.
@@ -108,14 +110,27 @@ async function main() {
   const derived = deriveSettlements(actions, AGENTS, PROVIDER_NAMES);
   const perProvider = derived.perProvider;
   const settledHashes = derived.settledHashes;
-  const totalCount = derived.count;
-  const grandTotal = derived.total;
+  let totalCount = derived.count;
+  let grandTotal = derived.total;
 
   console.log("ON-CHAIN (re-derived from the Casper token ledger):");
+  // Transfers to an address outside the provider list (the faucet's small top-ups to new outside
+  // wallets, for example) are not settlements: list them on one line and leave them out of the total.
+  const unlisted = { count: 0, total: 0n };
   for (const [name, v] of Object.entries(perProvider)) {
-    console.log(`  ${name.padEnd(15)} ${String(v.count).padStart(3)} settlements · ${fmt(v.total)} X402`);
+    if (!Object.values(PROVIDER_NAMES).includes(name)) {
+      unlisted.count += v.count;
+      unlisted.total += v.total;
+      continue;
+    }
+    console.log(`  ${name.padEnd(19)} ${String(v.count).padStart(3)} settlements · ${fmt(v.total)} X402`);
   }
-  console.log(`  ${"TOTAL".padEnd(15)} ${String(totalCount).padStart(3)} settlements · ${fmt(grandTotal)} X402\n`);
+  totalCount -= unlisted.count;
+  grandTotal -= unlisted.total;
+  if (unlisted.count) {
+    console.log(`  ${"Other payees".padEnd(19)} ${String(unlisted.count).padStart(3)} transfers   · ${fmt(unlisted.total)} X402 (not providers, e.g. faucet top-ups)`);
+  }
+  console.log(`  ${"TOTAL".padEnd(19)} ${String(totalCount).padStart(3)} settlements · ${fmt(grandTotal)} X402\n`);
 
   // Compare to what the public proof feed claims.
   try {
@@ -123,7 +138,7 @@ async function main() {
     const claimed = feed.totals?.settlements;
     const claimedPaid = BigInt(feed.totals?.totalPaid || "0");
     console.log("PROOF FEED claims:");
-    console.log(`  ${"TOTAL".padEnd(15)} ${String(claimed).padStart(3)} settlements · ${fmt(claimedPaid)} X402\n`);
+    console.log(`  ${"TOTAL".padEnd(19)} ${String(claimed).padStart(3)} settlements · ${fmt(claimedPaid)} X402\n`);
     // Row-level backing check. Totals alone are a weak test: a feed row whose transfer never
     // landed still hides under a bigger on-chain total. So match EVERY settlement row the feed
     // publishes to a real on-chain transfer by its deploy hash. A hash that is well-formed but

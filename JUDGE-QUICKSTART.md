@@ -44,7 +44,7 @@ npm run verify:mainnet
   It looks up every claimed mainnet settlement on a public Casper mainnet node and exits non-zero if
   any one of them did not execute on-chain.
 
-The 301-settlement proof feed in step 2 is the testnet history, kept separate from mainnet on
+The 313-settlement proof feed in step 2 is the testnet history, kept separate from mainnet on
 purpose so the two are never mixed in one number.
 
 ## 2. The numbers are not inflated (2 minutes, zero credentials)
@@ -65,7 +65,7 @@ snapshot. Both exit non-zero on failure.
 This re-derives the totals **from the Casper token ledger itself**, independent of our server and
 our feed: it reads every X402 transfer, counts agent-to-provider payments, and compares against
 what the public feed claims. Expected result: the chain shows **at least** as many settlements as
-the feed claims (currently chain 337, feed 301), and every published row is matched to a real
+the feed claims (on 15 Nov 2026: chain 445, feed 313), and every published row is matched to a real
 on-chain transfer by deploy hash. Sluice never over-claims.
 
 With no key it verifies against the committed ledger snapshot in `data/onchain-actions.json`
