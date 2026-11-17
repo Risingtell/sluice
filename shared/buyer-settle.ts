@@ -40,6 +40,8 @@ export interface SettlementExpectation {
   nonce: string;
   /** Casper chain name: "casper" or "casper-test". */
   chainName: string;
+  /** The token's amount argument: "amount" (reference X402 token, default) or "value" (WCSPR). */
+  amountArg?: "amount" | "value";
 }
 
 export type SettlementCheck =
@@ -92,7 +94,7 @@ export function checkSettlement(result: any, expect: SettlementExpectation): Set
   const arg = (name: string) => named.find(([n]) => n === name)?.[1];
   const to = lc(arg("to")?.parsed);
   const from = lc(arg("from")?.parsed);
-  const amount = String(arg("amount")?.parsed ?? "");
+  const amount = String(arg(expect.amountArg ?? "amount")?.parsed ?? "");
   const nonce = lc(arg("nonce")?.bytes);
 
   if (!isHex64(lc(expect.payTo).slice(2))) return fail("expected payee is not an account address");

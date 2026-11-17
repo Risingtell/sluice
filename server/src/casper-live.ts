@@ -29,6 +29,7 @@ import { nextChunk } from "./feed.ts";
 import type { TickResponse } from "../../shared/types.ts";
 import { explorerTxUrl, rpcFor, rpcOverride } from "../../shared/networks.ts";
 import { SCHEME_BUYER_SETTLE } from "../../shared/buyer-settle.ts";
+import { tokenProfile } from "../../shared/tokens.ts";
 import { BuyerSettleFacilitator, BuyerSettleServerScheme, type BuyerSettleFacilitatorOptions } from "./buyer-settle.ts";
 
 interface HTTPReqCtx {
@@ -75,7 +76,13 @@ export function mountCasperLive(
 
   // EIP-712 domain fields must match the deployed token exactly. The token is the same reference
   // contract on every network, deployed under the same name, so only its package hash differs.
-  const tokenExtra = { name: cfg.assetName, symbol: "X402", version: "1", decimals: "9" };
+  // Each network names its own token (the reference X402 token, or WCSPR) in its EIP-712 domain.
+  const tokenOf = (n: { assetPackage: string }) => tokenProfile(n.assetPackage, cfg.assetName);
+  const extraOf = (n: { assetPackage: string }) => {
+    const t = tokenOf(n);
+    return { name: t.name, symbol: t.symbol, version: t.version, decimals: String(t.decimals) };
+  };
+  const tokenExtra = extraOf(cfg.networks[0]);
   const casperScheme = new ExactCasperScheme().registerMoneyParser(() =>
     Promise.resolve({ asset: cfg.networks[0].assetPackage, amount: "0", extra: tokenExtra } as AssetAmount),
   );
@@ -139,10 +146,12 @@ export function mountCasperLive(
 
       // The network the buyer chose, from the settle answer or the requirements it settled against.
       const network: string = result?.network || sctx?.requirements?.network || cfg.networks[0].id;
+      const settledOn = cfg.networks.find((n) => n.id === network);
       meter.commitTick(quote, {
         txHash,
         network,
         explorerUrl: explorerTxUrl(network, txHash),
+        asset: settledOn ? tokenOf(settledOn).symbol : undefined,
       });
     })
     .onSettleFailure(async (sctx: any) => {
@@ -169,11 +178,12 @@ export function mountCasperLive(
     }
     return p;
   };
-  const priceOn = (assetPackage: string) => (ctx: any): AssetAmount => ({ asset: assetPackage, amount: quoteFor(ctx).quote.amount, extra: tokenExtra });
-  // The buyer must sign its authorization with this quote's nonce, so its transaction can pay this tick only.
-  const buyerPriceOn = (assetPackage: string) => (ctx: any): AssetAmount => {
+  const priceOn = (n: { assetPackage: string }) => (ctx: any): AssetAmount => ({ asset: n.assetPackage, amount: quoteFor(ctx).quote.amount, extra: extraOf(n) });
+  // The buyer must sign its authorization with this quote's nonce, so its transaction can pay this
+  // tick only, and must name the amount the way this token's contract reads it.
+  const buyerPriceOn = (n: { assetPackage: string }) => (ctx: any): AssetAmount => {
     const p = quoteFor(ctx);
-    return { asset: assetPackage, amount: p.quote.amount, extra: { ...tokenExtra, nonce: p.nonce } };
+    return { asset: n.assetPackage, amount: p.quote.amount, extra: { ...extraOf(n), amountArg: tokenOf(n).amountArg, nonce: p.nonce } };
   };
 
   app.use(
@@ -183,8 +193,8 @@ export function mountCasperLive(
           // Network order as configured (default first). Within a network the sponsored offer comes
           // first, so existing "exact" clients see exactly what they saw before.
           accepts: cfg.networks.flatMap((n) => [
-            ...(sponsored.has(n.id) ? [{ scheme: "exact", price: priceOn(n.assetPackage), network: n.id as Network, payTo }] : []),
-            ...(buyerSettle.has(n.id) ? [{ scheme: SCHEME_BUYER_SETTLE, price: buyerPriceOn(n.assetPackage), network: n.id as Network, payTo, maxTimeoutSeconds: PAYMENT_WINDOW_S }] : []),
+            ...(sponsored.has(n.id) ? [{ scheme: "exact", price: priceOn(n), network: n.id as Network, payTo }] : []),
+            ...(buyerSettle.has(n.id) ? [{ scheme: SCHEME_BUYER_SETTLE, price: buyerPriceOn(n), network: n.id as Network, payTo, maxTimeoutSeconds: PAYMENT_WINDOW_S }] : []),
           ]),
           description: "One metered tick of a Sluice stream",
           mimeType: "application/json",

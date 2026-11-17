@@ -20,6 +20,7 @@ import type { Express, Request, Response } from "express";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { ServerConfig } from "./config.ts";
+import { tokenProfile } from "../../shared/tokens.ts";
 import { MAINNET, TESTNET, chainNameFor, explorerFor, explorerTxUrl, labelFor, rpcFor, rpcOverride } from "../../shared/networks.ts";
 
 /** One state file per network; testnet keeps the file it always had. */
@@ -83,10 +84,16 @@ export function normalizeAccountHash(input: string): string | undefined {
   return undefined;
 }
 
+/** Networks the faucet may hand out free test tokens on: test networks paid in the X402 test token. */
+export const faucetNetworks = (cfg: ServerConfig) =>
+  cfg.networks.filter((n) => n.assetPackage && n.id !== MAINNET && tokenProfile(n.assetPackage, cfg.assetName).amountArg === "amount");
+
 export function mountFaucet(app: Express, cfg: ServerConfig): void {
   let inFlight: Promise<unknown> = Promise.resolve();
-  // Every network the server settles on, default (mainnet) first.
-  const networks = cfg.networks.filter((n) => n.assetPackage);
+  // Free test tokens, on test networks only. Every grant is a transfer this server pays gas for, and
+  // on mainnet customers bring their own tokens (WCSPR, bought and wrapped), so there is no mainnet
+  // faucet whatever NETWORKS lists. WCSPR is not ours to hand out either.
+  const networks = faucetNetworks(cfg);
   const specOf = (network: string) => networks.find((n) => n.id === network);
 
   const describe = (n: (typeof networks)[number]) => ({

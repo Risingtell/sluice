@@ -15,6 +15,7 @@ import type { FacilitatorClient } from "@x402/core/server";
 import type { AssetAmount, Network, PaymentPayload, PaymentRequirements, SettleResponse, SupportedResponse, VerifyResponse } from "@x402/core/types";
 import { SCHEME_BUYER_SETTLE, claimMessage, confirmSettlement, isHex64, type SettlementCheck, type SettlementExpectation } from "../../shared/buyer-settle.ts";
 import { chainNameFor } from "../../shared/networks.ts";
+import { isAmountArg } from "../../shared/tokens.ts";
 
 const ADDRESS = /^00[0-9a-f]{64}$/;
 const HEX = /^[0-9a-f]+$/;
@@ -97,7 +98,10 @@ export class BuyerSettleFacilitator implements FacilitatorClient {
     const hash = String(p.transactionHash ?? "").toLowerCase();
     if (!isHex64(hash)) return { ok: false, reason: "payload.transactionHash must be 64 hex characters" };
     if (this.used.has(hash)) return { ok: false, reason: "this transaction already paid for a tick" };
-    const nonce = String((req.extra as Record<string, unknown> | undefined)?.nonce ?? "").toLowerCase();
+    const extra = (req.extra ?? {}) as Record<string, unknown>;
+    const nonce = String(extra.nonce ?? "").toLowerCase();
+    const amountArg = extra.amountArg === undefined ? "amount" : extra.amountArg;
+    if (!isAmountArg(amountArg)) return { ok: false, reason: "unknown token amount argument" };
 
     // 1. The claim: only the key that paid can sign it, so a hash copied off the chain is useless
     //    to anyone else. Checked before any chain read, since it costs nothing.
@@ -113,7 +117,7 @@ export class BuyerSettleFacilitator implements FacilitatorClient {
     }
 
     // 2. The transfer: read once; settle reuses a verify of the same transfer for the same quote.
-    const key = `${req.network}|${req.asset}|${req.payTo}|${req.amount}|${nonce}|${payerFromKey}`;
+    const key = `${req.network}|${req.asset}|${req.payTo}|${req.amount}|${amountArg}|${nonce}|${payerFromKey}`;
     const known = this.verified.get(hash);
     if (known && known.key === key && Date.now() - known.at < VERIFIED_TTL_MS) return { ok: true, hash, payer: known.payer };
 
@@ -121,7 +125,7 @@ export class BuyerSettleFacilitator implements FacilitatorClient {
     this.inFlight++;
     let result: SettlementCheck;
     try {
-      result = await this.confirm(rpc, hash, { asset: req.asset, payTo: req.payTo, amount: req.amount, nonce, chainName: chainNameFor(req.network) });
+      result = await this.confirm(rpc, hash, { asset: req.asset, payTo: req.payTo, amount: req.amount, nonce, chainName: chainNameFor(req.network), amountArg });
     } finally {
       this.inFlight--;
     }

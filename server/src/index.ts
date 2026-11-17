@@ -4,13 +4,14 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { loadConfig, RETIRED_STREAMS, STREAMS } from "./config.ts";
+import { tokenProfile } from "../../shared/tokens.ts";
 import { Store } from "./store.ts";
 import { StreamingMeter, MeterError } from "./meter.ts";
 import { MockSettlementProvider, type SettlementProvider } from "./settlement.ts";
 import { mountCasperLive } from "./casper-live.ts";
 import { mountDemo, seedSnapshot } from "./demo.ts";
 import { createFacilitatorRouter, facilitatorOptionsFromEnv } from "../../facilitator/src/router.ts";
-import { mountFaucet } from "./faucet.ts";
+import { faucetNetworks, mountFaucet } from "./faucet.ts";
 import { nextChunk } from "./feed.ts";
 import type { ImpactSnapshot, OpenSessionRequest, TickResponse } from "../../shared/types.ts";
 
@@ -221,7 +222,8 @@ app.get("/impact", (req, res) => {
     totals: {
       settlements: t.settlements,
       totalPaid: t.totalPaid.toString(),
-      asset: cfg.asset,
+      // The token this network is paid in (WCSPR on a WCSPR network), not one label for all.
+      asset: tokenProfile(cfg.networks.find((n) => n.id === network)?.assetPackage ?? "", cfg.asset).symbol === "WCSPR" ? "WCSPR" : cfg.asset,
       activeSessions: store.activeSessionCount(),
       uniqueAgents: t.uniqueAgents,
       uniqueProviders: t.uniqueProviders,
@@ -236,7 +238,8 @@ app.get("/impact", (req, res) => {
 // Judge-facing demo console: one click runs a real (or clearly-labelled simulated) agent session.
 // Token faucet, so a third-party agent can onboard itself instead of asking us for tokens.
 // LIVE only: in MOCK mode settlement is synthetic and no token is needed.
-if (cfg.mode === "live" && cfg.assetPackage) mountFaucet(app, cfg);
+// The faucet hands out free test tokens on test networks only (see faucet.ts); none on mainnet.
+if (cfg.mode === "live" && faucetNetworks(cfg).length) mountFaucet(app, cfg);
 
 mountDemo(app, cfg, cfg.mode === "live" && liveReady);
 

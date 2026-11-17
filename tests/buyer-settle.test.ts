@@ -20,6 +20,8 @@ import { settlementModesFromEnv, type ServerConfig } from "../server/src/config.
 import { mountCasperLive } from "../server/src/casper-live.ts";
 import { StreamingMeter } from "../server/src/meter.ts";
 import { MAINNET, TESTNET } from "../shared/networks.ts";
+import { WCSPR_MAINNET, WCSPR_TESTNET, tokenProfile } from "../shared/tokens.ts";
+import { loadConfig } from "../server/src/config.ts";
 import type { Session, SettlementEvent, StreamSpec } from "../shared/types.ts";
 
 /** A real testnet settlement (tx 1f389c8a..., block 9,775,850): Pico's buyer paying Helios Feeds. */
@@ -262,7 +264,7 @@ describe("a full paid tick over HTTP, buyer paying its own gas", () => {
       assert.equal(s.events[0].txHash, TX);
       assert.equal(s.events[0].explorerUrl, `https://testnet.cspr.live/transaction/${TX}`);
       // The server asked the chain for exactly this tick's transfer.
-      assert.deepEqual(seen[0], { asset: TEST_PKG, payTo: HELIOS, amount: offer.amount, nonce, chainName: "casper-test" });
+      assert.deepEqual(seen[0], { asset: TEST_PKG, payTo: HELIOS, amount: offer.amount, nonce, chainName: "casper-test", amountArg: "amount" });
 
       // Replaying the same payment cannot buy a second tick: the next quote has a new nonce.
       const replay = await pay(offer);
@@ -308,5 +310,93 @@ describe("gas accounting counts every transfer the agent sent", () => {
     assert.equal(g.take("a"), 0n);
     g.begin();
     assert.deepEqual(g.submitted, []);
+  });
+});
+
+describe("mainnet customers pay in WCSPR, a token they can buy", () => {
+  /** A real testnet WCSPR payment (tx f4587b91..., block 9,812,657): Sluice's buyer paying Pico. */
+  const WFIX = JSON.parse(readFileSync(new URL("./fixtures/wcspr-transfer-with-authorization.json", import.meta.url), "utf8"));
+  const WEXPECT: SettlementExpectation = {
+    asset: WCSPR_TESTNET,
+    payTo: "00e01c092d8b3ed9b91b68a5ec563834a7fe55c64dff77a21f5ed3f3e4bd40e1c7",
+    amount: "5417000715",
+    nonce: "0d0aedcd8dec93ef56e6b5af029bdfd481e5a0c3901298c366be4b2488f4c584",
+    chainName: "casper-test",
+    amountArg: "value",
+  };
+
+  test("WCSPR is recognised on both networks, with its own name and amount argument", () => {
+    for (const pkg of [WCSPR_MAINNET, `hash-${WCSPR_TESTNET}`]) {
+      assert.deepEqual(tokenProfile(pkg, "Casper X402 Token"), { name: "Wrapped CSPR", symbol: "WCSPR", version: "1", decimals: 9, amountArg: "value" });
+    }
+    assert.equal(tokenProfile(TEST_PKG, "Casper X402 Token").amountArg, "amount");
+  });
+
+  test("a real WCSPR transfer matches when read by its `value` argument, and only then", () => {
+    const r = checkSettlement(WFIX, WEXPECT);
+    assert.ok(r.ok, !r.ok ? r.reason : "");
+    if (r.ok) assert.equal(r.payer, "0078a9a1842a290e7edfac536ad9570d3a29ad5909761973727483263aacdff80c");
+    const wrongArg = checkSettlement(WFIX, { ...WEXPECT, amountArg: "amount" });
+    assert.equal(wrongArg.ok, false);
+  });
+
+  test("a WCSPR network is never sponsored, even if SPONSORED_NETWORKS names it", () => {
+    const keep = { ...process.env };
+    try {
+      Object.assign(process.env, { MODE: "live", NETWORKS: TESTNET, ASSET_PACKAGE_TESTNET: WCSPR_TESTNET, SPONSORED_NETWORKS: TESTNET, BUYER_SETTLE_NETWORKS: TESTNET });
+      const cfg = loadConfig();
+      assert.deepEqual(cfg.sponsoredNetworks, []);
+      assert.deepEqual(cfg.buyerSettleNetworks, [TESTNET]);
+    } finally {
+      process.env = keep;
+    }
+  });
+
+  test("the 402 for a WCSPR network names WCSPR and its `value` argument; the feed records WCSPR", async () => {
+    const sessions = new Map<string, Session>();
+    const events: SettlementEvent[] = [];
+    const SPEC: StreamSpec = { id: "eth-usd", title: "ETH/USD", description: "", ratePerSecond: "800000", asset: "X402", provider: "Helios Feeds", payTo: HELIOS };
+    const st = { streams: new Map([[SPEC.id, SPEC]]), getSession: (id: string) => sessions.get(id), putSession: (x: Session) => void sessions.set(x.id, x), addEvent: (e: SettlementEvent) => void events.push(e) };
+    const meter = new StreamingMeter(st, { payTo: HELIOS, maxTickSeconds: 10 });
+    const cfg = {
+      mode: "live",
+      payTo: HELIOS,
+      assetName: "Casper X402 Token",
+      networks: [{ id: TESTNET, assetPackage: WCSPR_TESTNET, explorer: "https://testnet.cspr.live" }],
+      sponsoredNetworks: [],
+      buyerSettleNetworks: [TESTNET],
+      facilitatorUrl: "http://unused",
+      facilitatorApiKey: "",
+    } as unknown as ServerConfig;
+    const seen: SettlementExpectation[] = [];
+    const app = express();
+    app.use(express.json());
+    mountCasperLive(app, cfg, meter, {
+      confirm: async (_rpc, _hash, expect) => {
+        seen.push(expect);
+        return { ok: true as const, payer: BUYER_ADDR, initiator: BUYER.publicKey.toHex(), gasMotes: "1", blockHeight: 1 };
+      },
+    });
+    const server = app.listen(0);
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    try {
+      const session = meter.openSession("eth-usd", BUYER_ADDR);
+      const url = `${base}/tick?session=${session.id}`;
+      const offer = decodePaymentRequiredHeader((await fetch(url, { method: "POST" })).headers.get("payment-required")!).accepts[0];
+      assert.equal(offer.asset, WCSPR_TESTNET);
+      assert.equal(offer.extra?.name, "Wrapped CSPR");
+      assert.equal(offer.extra?.symbol, "WCSPR");
+      assert.equal(offer.extra?.amountArg, "value");
+      const nonce = String(offer.extra?.nonce);
+      const paid = await fetch(url, {
+        method: "POST",
+        headers: { "PAYMENT-SIGNATURE": encodePaymentSignatureHeader({ x402Version: 2, accepted: offer, payload: { transactionHash: TX, ...claim(BUYER, TESTNET, nonce, TX) } } as any) },
+      });
+      assert.equal(paid.status, 200);
+      assert.equal(seen[0].amountArg, "value");
+      assert.equal(events[0].asset, "WCSPR");
+    } finally {
+      server.close();
+    }
   });
 });

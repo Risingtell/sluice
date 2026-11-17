@@ -29,6 +29,10 @@ import type { ImpactSnapshot, Session, SettlementEvent, StreamSpec } from "../sh
 import { explorerTxUrl, networkSelector } from "../shared/networks.ts";
 import { SCHEME_BUYER_SETTLE } from "../shared/buyer-settle.ts";
 import { BuyerSettleClientScheme, GasTracker } from "./buyer-settle.ts";
+import { unwrapCspr, wrapCspr, type WrapResult } from "./wrap.ts";
+
+export { WCSPR_MAINNET, WCSPR_TESTNET } from "../shared/tokens.ts";
+export type { WrapResult } from "./wrap.ts";
 
 /** The hosted Sluice server: real providers, real on-chain settlement on Casper testnet. Pass it as serverUrl. */
 export const HOSTED_SERVER = "https://sluice-kff3.onrender.com";
@@ -208,6 +212,8 @@ export class Sluice {
     private readonly gas: GasTracker = new GasTracker(),
     /** Worst-case gas for one self-paid tick, in motes; 0 when this agent never pays gas. */
     private readonly gasPerTickCeiling: bigint = 0n,
+    /** LIVE: the agent's key, for wrapping and unwrapping CSPR. */
+    private readonly wallet?: { casperSdk: any; privateKey: any },
   ) {}
 
   static async connect(opts: SluiceConnectOptions = {}): Promise<Sluice> {
@@ -240,10 +246,10 @@ export class Sluice {
     const client = new x402Client(selector as never);
     if (opts.payGas !== true) client.register("casper:*", new ExactCasperScheme(signer));
     const gas = new GasTracker();
+    const { readFile } = await import("node:fs/promises");
+    const privateKey = casperSdk.PrivateKey.fromPem(await readFile(opts.keyPath, "utf8"), algo);
     if (opts.payGas !== false) {
-      const { readFile } = await import("node:fs/promises");
       const eip712 = await import("@casper-ecosystem/casper-eip-712");
-      const privateKey = casperSdk.PrivateKey.fromPem(await readFile(opts.keyPath, "utf8"), algo);
       client.register("casper:*", new BuyerSettleClientScheme(casperSdk, privateKey, eip712 as never, gas, { gasLimitMotes: opts.gasLimitMotes, rpcUrls: opts.rpcUrls }) as never);
     }
     const httpClient = new x402HTTPClient(client);
@@ -253,7 +259,23 @@ export class Sluice {
       return { tx: settled?.transaction ?? "", network: String(settled?.network || chosen) };
     };
     const ceiling = opts.payGas === false ? 0n : BigInt(opts.gasLimitMotes ?? 5_000_000_000);
-    return new Sluice(serverUrl, tickFetch, readTx, signer.accountAddress(), true, gas, ceiling);
+    return new Sluice(serverUrl, tickFetch, readTx, signer.accountAddress(), true, gas, ceiling, { casperSdk, privateKey });
+  }
+
+  /**
+   * LIVE: wrap CSPR from this agent's account into WCSPR (1:1), the token mainnet Sluice servers are
+   * paid in. Customers buy CSPR (Casper Wallet's Buy, cspr.live, or an exchange) and wrap it here.
+   * The network is always named: wrapping spends the account's own CSPR, about 4 CSPR of gas each.
+   */
+  async wrapCspr(amountCSPR: number, network: string, opts: { gasLimitMotes?: number; rpcUrl?: string } = {}): Promise<WrapResult> {
+    if (!this.wallet) throw new Error("wrapCspr needs live mode (a key)");
+    return wrapCspr(this.wallet.casperSdk, this.wallet.privateKey, BigInt(Math.round(amountCSPR * 1e9)), { network, ...opts });
+  }
+
+  /** LIVE: unwrap WCSPR back into CSPR in this agent's account (about 2 to 3 CSPR of gas). */
+  async unwrapCspr(amountWCSPR: number, network: string, opts: { gasLimitMotes?: number; rpcUrl?: string } = {}): Promise<WrapResult> {
+    if (!this.wallet) throw new Error("unwrapCspr needs live mode (a key)");
+    return unwrapCspr(this.wallet.casperSdk, this.wallet.privateKey, BigInt(Math.round(amountWCSPR * 1e9)), { network, ...opts });
   }
 
   /** The catalogue of metered streams the server offers. */

@@ -203,7 +203,7 @@ hash proves nothing on its own.
 npm test
 ```
 
-62 tests, named after the claim each one defends. Seven of them assert against the real committed
+72 tests, named after the claim each one defends. Seven of them assert against the real committed
 on-chain ledger snapshot, so if the published numbers ever drift above what Casper actually shows,
 the suite fails instead of the over-claim shipping.
 
@@ -277,6 +277,29 @@ one. Each tick reports `gasMotes`, the session reports `gasPaidMotes`, and `gasB
 session before its gas crosses a ceiling. Try it on testnet:
 `SERVER_URL=http://localhost:4021 BUYER_KEY=keys/agent2.pem npx tsx scripts/buyer-settle-run.ts`
 (the buyer needs test CSPR for gas and X402 tokens to pay with).
+
+### Paying on mainnet: WCSPR, bought by the customer
+
+On mainnet a Sluice server is paid in **WCSPR** (Wrapped CSPR, CSPR.trade's official token,
+package [`8df5d267...`](https://cspr.live/contract-package/8df5d26790e18cf0404502c62ce5dc9025800ad6975c97466e20506c39c505b6)),
+and the buyer pays its own gas. Nobody depends on Sluice for tokens: WCSPR is CSPR, wrapped 1:1.
+Set `ASSET_PACKAGE_MAINNET` to that package; the server recognises WCSPR, offers it buyer-settle
+only (its facilitator cannot settle WCSPR, and mainnet is never sponsored), and runs no faucet on
+mainnet.
+
+How a customer gets WCSPR:
+
+1. **Buy CSPR.** In Casper Wallet (Buy, in the main menu) or on cspr.live (Buy CSPR), through
+   their card providers, or on any exchange that lists CSPR, then withdraw to your Casper account.
+2. **Wrap it.** `await sluice.wrapCspr(10, "casper:casper")` turns 10 CSPR into 10 WCSPR in the
+   agent's own account. `unwrapCspr(amount, network)` turns leftovers back into CSPR.
+3. **Stream.** `Sluice.connect({ mode: "live", keyPath, serverUrl, network: "casper:casper", payGas: true })`.
+
+What it costs the customer, measured on Casper testnet (same contracts as mainnet): each tick is
+the tick's price in WCSPR plus about 2.1 CSPR of gas for the WCSPR transfer (about 3.3 CSPR with
+the X402 test token); wrapping costs about 3.2 CSPR of gas, unwrapping about 3.5. Keep CSPR for gas
+as well as WCSPR to pay with.
+
 Sustained load for the proof feed: `WORKERS=3 TICK_MS=2000 TICKS=12 bash scripts/volume.sh`.
 Multi-agent economy run: `ROUNDS=1 TICK_MS=2500 bash scripts/economy.sh`.
 

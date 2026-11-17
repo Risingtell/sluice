@@ -39,6 +39,8 @@ export interface SettlementResult {
   txHash: string;
   explorerUrl: string;
   network: string;
+  /** Token symbol the payment moved, when it differs by network (WCSPR on mainnet); else the stream's. */
+  asset?: string;
 }
 
 export class StreamingMeter {
@@ -114,7 +116,7 @@ export class StreamingMeter {
       payTo: quote.stream.payTo ?? this.cfg.payTo,
       provider: quote.stream.provider,
       amount: quote.amount,
-      asset: quote.stream.asset,
+      asset: result.asset ?? quote.stream.asset,
       seconds: quote.seconds,
       network: result.network,
       txHash: result.txHash,

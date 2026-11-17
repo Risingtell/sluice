@@ -29,7 +29,8 @@ const summary = await sluice.stream(stream, {
   onTick: (t) => console.log(`tick ${t.tick}: tx ${t.transactionHash} | billed ${t.billedSeconds.toFixed(1)} s | ${t.settleMs} ms | gas ${cspr(t.gasMotes)} CSPR`),
 });
 console.log(`closed: ${summary.closeReason}`);
-console.log(`ticks ${summary.ticks}, paid ${cspr(summary.totalPaidMotes)} X402, gas paid by buyer ${cspr(summary.gasPaidMotes)} CSPR`);
+const token = (await sluice.impact().catch(() => null))?.totals.asset ?? "tokens";
+console.log(`ticks ${summary.ticks}, paid ${cspr(summary.totalPaidMotes)} ${token}, gas paid by buyer ${cspr(summary.gasPaidMotes)} CSPR`);
 console.log(`settlement ms: ${JSON.stringify(summary.settlement)}`);
 for (const h of summary.transactionHashes) console.log(`  https://testnet.cspr.live/transaction/${h}`);
 if (summary.transactionHashes.length === 0 || summary.closeReason.startsWith("stream interrupted")) process.exit(1);

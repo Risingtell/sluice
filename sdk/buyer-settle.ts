@@ -17,6 +17,7 @@ import {
   type SettlementExpectation,
 } from "../shared/buyer-settle.ts";
 import { chainNameFor, explorerTxUrl, rpcFor } from "../shared/networks.ts";
+import { isAmountArg } from "../shared/tokens.ts";
 
 const ADDRESS = /^00[0-9a-f]{64}$/;
 
@@ -106,11 +107,14 @@ export class BuyerSettleClientScheme {
     if (!ADDRESS.test(payTo)) throw new Error(`buyer-settle: invalid payee ${payTo}`);
     if (!isHex64(nonce)) throw new Error("buyer-settle: the server sent no nonce for this tick");
     if (typeof name !== "string" || !name || typeof version !== "string" || !version) throw new Error("buyer-settle: token name/version missing");
+    // WCSPR names the amount "value", the reference X402 token "amount"; the server says which.
+    const amountArg = req.extra?.amountArg ?? "amount";
+    if (!isAmountArg(amountArg)) throw new Error(`buyer-settle: unknown token amount argument ${amountArg}`);
 
     const network = String(req.network);
     const chainName = chainNameFor(network);
     const rpcUrl = this.opts.rpcUrls?.[network] || rpcFor(network);
-    const expect: SettlementExpectation = { asset, payTo, amount: String(req.amount), nonce, chainName };
+    const expect: SettlementExpectation = { asset, payTo, amount: String(req.amount), nonce, chainName, amountArg };
     const quoteKey = `${network}|${nonce}`;
     const now = Math.floor(Date.now() / 1000);
     const windowS = Number(req.maxTimeoutSeconds || 180);
@@ -152,7 +156,7 @@ export class BuyerSettleClientScheme {
     const args = casperSdk.Args.fromMap({
       from: casperSdk.CLValue.newCLKey(casperSdk.Key.newKey("account-hash-" + from.slice(2))),
       to: casperSdk.CLValue.newCLKey(casperSdk.Key.newKey("account-hash-" + payTo.slice(2))),
-      amount: casperSdk.CLValue.newCLUInt256(String(req.amount)),
+      [amountArg]: casperSdk.CLValue.newCLUInt256(String(req.amount)),
       valid_after: casperSdk.CLValue.newCLUint64(validAfter),
       valid_before: casperSdk.CLValue.newCLUint64(validBefore),
       nonce: u8list(fromHex(nonce)),

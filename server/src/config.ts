@@ -1,6 +1,7 @@
 import { config as loadEnv } from "dotenv";
 import type { StreamSpec } from "../../shared/types.ts";
 import { MAINNET, TESTNET, explorerFor, parseNetworks } from "../../shared/networks.ts";
+import { tokenProfile } from "../../shared/tokens.ts";
 
 loadEnv();
 
@@ -82,6 +83,11 @@ export function loadConfig(): ServerConfig {
   const assetName = process.env.ASSET_NAME || "X402";
   const served = mode === "live" ? networksFromEnv() : [];
   const modes = settlementModesFromEnv(served.map((n) => n.id));
+  // The facilitator builds transfer_with_authorization with an "amount" argument, so it can only
+  // sponsor tokens that read "amount". A WCSPR network is buyer-settle only.
+  const unsponsorable = served.filter((n) => tokenProfile(n.assetPackage, assetName).amountArg !== "amount").map((n) => n.id);
+  if (modes.sponsored.some((id) => unsponsorable.includes(id))) console.warn(`   ${unsponsorable.join(", ")}: WCSPR is paid buyer-settle only; not sponsoring it`);
+  modes.sponsored = modes.sponsored.filter((id) => !unsponsorable.includes(id));
   // A network nobody can pay on is not offered at all.
   const networks = served.filter((n) => modes.sponsored.includes(n.id) || modes.buyerSettle.includes(n.id));
   return {

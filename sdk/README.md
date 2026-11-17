@@ -67,6 +67,16 @@ transfer, `rpcUrls` picks the node per network, each tick reports `gasMotes`, an
 stops a session before its gas crosses a ceiling. If a server refuses a tick after your transfer
 executed, the error names the transaction hash.
 
+**Paying on mainnet.** Mainnet Sluice servers are paid in WCSPR (Wrapped CSPR, 1:1 with CSPR).
+Buy CSPR (Casper Wallet's Buy, cspr.live, or an exchange), then wrap it from the same account:
+
+```ts
+await sluice.wrapCspr(10, "casper:casper");   // 10 CSPR -> 10 WCSPR, about 3.2 CSPR of gas
+await sluice.unwrapCspr(2, "casper:casper");  // back to CSPR when you are done
+```
+
+`WCSPR_MAINNET` and `WCSPR_TESTNET` export the token package hashes.
+
 ## API
 
 | Method | What |
