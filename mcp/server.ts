@@ -105,7 +105,7 @@ const TOOLS = [
 ] as const;
 
 const server = new Server(
-  { name: "sluice-mcp", version: "0.2.0" },
+  { name: "sluice-mcp", version: "0.3.0" },
   { capabilities: { tools: {} } },
 );
 
