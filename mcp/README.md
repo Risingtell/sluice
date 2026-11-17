@@ -50,6 +50,9 @@ SLUICE_MODE=mock                          # or live
 SLUICE_NETWORK=casper:casper-test         # live only, optional: the network to pay on
 CLIENT_PRIVATE_KEY_PATH=keys/agent.pem    # live only: the paying Casper account
 CLIENT_KEY_ALGO=ed25519
+SLUICE_PAY_GAS=                           # live only: 1 = always pay your own gas (needed on mainnet,
+                                          # ~3.3 CSPR a tick), 0 = only servers that pay it, unset = either
+SLUICE_GAS_LIMIT_MOTES=5000000000         # live only: gas limit per self-paid transfer
 ```
 
 Mock mode needs a server in mock mode; nothing is signed or paid. In live mode the agent pays from

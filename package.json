@@ -18,6 +18,7 @@
     "verify:mainnet": "tsx scripts/verify-mainnet.ts"
   },
   "dependencies": {
+    "@casper-ecosystem/casper-eip-712": "1.2.1",
     "@make-software/casper-x402": "^1.0.0",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@x402/core": "^2.16.0",

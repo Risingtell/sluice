@@ -17,14 +17,18 @@
  *     }),
  *   });
  *
- * In LIVE mode every tick signs an EIP-712 `transfer_with_authorization` over the CEP-18 token
- * and the server's Casper x402 facilitator settles it on-chain (the facilitator pays the gas). In
- * MOCK mode the same loop runs with simulated settlement. The decide() callback is the agency:
+ * In LIVE mode every tick signs an EIP-712 `transfer_with_authorization` over the CEP-18 token.
+ * Who submits it, and so who pays the gas, depends on what the server offers on that network: the
+ * server's facilitator ("exact", the server pays) or this agent itself ("buyer-settle", the agent
+ * pays, about 3.3 CSPR per tick). `payGas` chooses. In MOCK mode the same loop runs with simulated
+ * settlement. The decide() callback is the agency:
  * return keepStreaming=false and the sluice gate closes, ending payment instantly.
  */
 
 import type { ImpactSnapshot, Session, SettlementEvent, StreamSpec } from "../shared/types.ts";
 import { explorerTxUrl, networkSelector } from "../shared/networks.ts";
+import { SCHEME_BUYER_SETTLE } from "../shared/buyer-settle.ts";
+import { BuyerSettleClientScheme, GasTracker } from "./buyer-settle.ts";
 
 /** The hosted Sluice server: real providers, real on-chain settlement on Casper testnet. Pass it as serverUrl. */
 export const HOSTED_SERVER = "https://sluice-kff3.onrender.com";
@@ -44,6 +48,21 @@ export interface SluiceConnectOptions {
   keyPath?: string;
   /** LIVE only: key algorithm. Default ed25519. */
   keyAlgo?: "ed25519" | "secp256k1";
+  /**
+   * LIVE only: who pays the gas for each tick's transfer.
+   *   - unset (default): the server where it offers to, otherwise this agent. With no `network`
+   *     named, a server-paid offer on any network beats paying gas yourself, so an agent never
+   *     starts spending its own CSPR on mainnet just because a server listed mainnet first.
+   *   - true: always this agent ("buyer-settle"). It submits each transfer from its own account,
+   *     about 3.3 CSPR per tick, and refuses a server that does not offer this.
+   *   - false: only the server ("exact"); refuses a server that wants the buyer to pay.
+   * Mainnet Sluice servers do not pay gas for buyers, so paying on mainnet means payGas true or unset.
+   */
+  payGas?: boolean;
+  /** LIVE + buyer-settle: gas limit per transfer, in motes (default 5 CSPR; about 3.3 is used). */
+  gasLimitMotes?: number;
+  /** LIVE + buyer-settle: Casper node to submit to, per network (default the public node). */
+  rpcUrls?: Record<string, string>;
 }
 
 export interface DecisionContext {
@@ -84,6 +103,13 @@ export interface StreamOptions {
   decide?: Decide;
   /** Called after every paid tick with the fresh chunk and settlement info. */
   onTick?: (info: TickInfo) => void;
+  /**
+   * Gas ceiling for the session in CSPR, when this agent pays its own gas (buyer-settle). The SDK
+   * stops before a tick whose gas could cross it: until it has paid one tick it assumes the full
+   * gas limit (5 CSPR by default), after that the last tick's cost. Counts every transfer this
+   * agent submitted, including ones refused or failed. Unset: no gas ceiling beyond maxTicks.
+   */
+  gasBudgetCSPR?: number;
 }
 
 export interface TickInfo {
@@ -100,6 +126,8 @@ export interface TickInfo {
   settleMs: number;
   /** Seconds of streaming this tick billed (time since the previous tick, server-capped). */
   billedSeconds: number;
+  /** Gas this agent paid for the tick's transfer, in motes; 0 when the server paid it. */
+  gasMotes: bigint;
   session: Session;
 }
 
@@ -120,6 +148,11 @@ export interface StreamSummary {
   txHashes: string[];
   /** How long each paid tick took, end to end (settleMs). LIVE mode only; null in mock mode or with no paid tick. */
   settlement: SettlementTiming | null;
+  /**
+   * Gas this agent paid across the session, in motes: every transfer it submitted, including any a
+   * server refused or that failed on chain. 0 when the server paid every tick.
+   */
+  gasPaidMotes: bigint;
 }
 
 export interface PaidTick {
@@ -134,6 +167,8 @@ export interface PaidTick {
   explorerUrl: string;
   /** Wall time of the paid request, ms (challenge, signing, chunk and, in LIVE mode, settlement). */
   settleMs: number;
+  /** Gas this agent paid for this tick's transfer, in motes; 0 when the server paid it. */
+  gasMotes: bigint;
 }
 
 /** min / median / max of a list of durations (null for an empty list). */
@@ -143,6 +178,17 @@ export function timing(ms: number[]): SettlementTiming | null {
   const mid = Math.floor(s.length / 2);
   const median = s.length % 2 ? s[mid] : Math.round((s[mid - 1] + s[mid]) / 2);
   return { minMs: s[0], medianMs: median, maxMs: s[s.length - 1] };
+}
+
+/**
+ * Which payment offer to take, among those this agent can pay (schemes it registered). A
+ * server-paid "exact" offer beats paying gas yourself: on the named network, or, with no network
+ * named, on any Casper network. Otherwise the network rule of networkSelector applies.
+ */
+export function chooseOffer<T extends { network: string; scheme: string }>(version: number, options: T[], network?: string): T {
+  const serverPaid = network ? undefined : options.find((o) => o.network.startsWith("casper:") && o.scheme === "exact");
+  const picked = serverPaid ?? (networkSelector(network)(version, options) as T);
+  return options.find((o) => o.network === picked.network && o.scheme === "exact") ?? picked;
 }
 
 type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
@@ -158,6 +204,10 @@ export class Sluice {
     public readonly agentId: string,
     /** True when ticks settle on chain (LIVE mode). */
     private readonly live: boolean = false,
+    /** Gas this agent spends on transfers it submits itself (buyer-settle). */
+    private readonly gas: GasTracker = new GasTracker(),
+    /** Worst-case gas for one self-paid tick, in motes; 0 when this agent never pays gas. */
+    private readonly gasPerTickCeiling: bigint = 0n,
   ) {}
 
   static async connect(opts: SluiceConnectOptions = {}): Promise<Sluice> {
@@ -178,20 +228,32 @@ export class Sluice {
     const signer = await createClientCasperSigner(opts.keyPath, algo);
     // Remember which offer was paid, so a receipt without a network still links the right explorer.
     let chosen = opts.network ?? "";
-    const select = networkSelector(opts.network);
-    const selector = (version: number, options: { network: string }[]) => {
-      const picked = select(version, options);
-      chosen = picked.network;
-      return picked;
+    // Only the schemes this agent agreed to are registered, so the x402 client never offers the
+    // selector anything else. A server-paid offer wins over paying gas: on the named network, or,
+    // with no network named, on any network (an agent that did not ask for mainnet must not start
+    // paying mainnet gas because a server lists mainnet first).
+    const selector = (version: number, options: { network: string; scheme: string }[]) => {
+      const best = chooseOffer(version, options, opts.network);
+      chosen = best.network;
+      return best;
     };
-    const client = new x402Client(selector as never).register("casper:*", new ExactCasperScheme(signer));
+    const client = new x402Client(selector as never);
+    if (opts.payGas !== true) client.register("casper:*", new ExactCasperScheme(signer));
+    const gas = new GasTracker();
+    if (opts.payGas !== false) {
+      const { readFile } = await import("node:fs/promises");
+      const eip712 = await import("@casper-ecosystem/casper-eip-712");
+      const privateKey = casperSdk.PrivateKey.fromPem(await readFile(opts.keyPath, "utf8"), algo);
+      client.register("casper:*", new BuyerSettleClientScheme(casperSdk, privateKey, eip712 as never, gas, { gasLimitMotes: opts.gasLimitMotes, rpcUrls: opts.rpcUrls }) as never);
+    }
     const httpClient = new x402HTTPClient(client);
     const tickFetch = wrapFetchWithPayment(fetch, client) as FetchLike;
     const readTx: ReadSettlement = (r) => {
       const settled = httpClient.getPaymentSettleResponse((n: string) => r.headers.get(n));
       return { tx: settled?.transaction ?? "", network: String(settled?.network || chosen) };
     };
-    return new Sluice(serverUrl, tickFetch, readTx, signer.accountAddress(), true);
+    const ceiling = opts.payGas === false ? 0n : BigInt(opts.gasLimitMotes ?? 5_000_000_000);
+    return new Sluice(serverUrl, tickFetch, readTx, signer.accountAddress(), true, gas, ceiling);
   }
 
   /** The catalogue of metered streams the server offers. */
@@ -213,10 +275,15 @@ export class Sluice {
    */
   async payTick(sessionId: string): Promise<PaidTick> {
     const started = Date.now();
+    this.gas.begin();
     const res = await this.tickFetch(`${this.serverUrl}/tick?session=${sessionId}`, { method: "POST" });
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`tick unpaid (${res.status}): ${body.slice(0, 140)}`);
+      // A buyer-settled transfer is already on chain by the time the server answers. Say so, with
+      // the hash, so a refused tick is never mistaken for money that did not move.
+      const sent = this.gas.submitted;
+      const note = sent.length ? ` Your transfer ${sent.join(", ")} executed on chain, but the server did not accept it.` : "";
+      throw new Error(`tick unpaid (${res.status}): ${body.slice(0, 140)}${note}`);
     }
     const body = (await res.json()) as { session: Session; settlement?: SettlementEvent; data: any };
     const settled = this.readTx(res);
@@ -225,7 +292,8 @@ export class Sluice {
     // An explorer link only for a real chain settlement whose network is known.
     const explorerUrl = network.startsWith("casper:") ? explorerTxUrl(network, txHash) : "";
     const settleMs = Date.now() - started;
-    return { session: body.session, data: body.data, transactionHash: txHash, txHash, network, explorerUrl, settleMs };
+    const gasMotes = this.gas.take(txHash);
+    return { session: body.session, data: body.data, transactionHash: txHash, txHash, network, explorerUrl, settleMs, gasMotes };
   }
 
   /** Close the gate. */
@@ -264,9 +332,22 @@ export class Sluice {
     let ticks = 0;
     let totalPaid = 0n;
     let prevPaid = 0n;
+    const gasAtStart = this.gas.total;
+    let lastGas = 0n;
+    const gasBudgetMotes = opts.gasBudgetCSPR === undefined ? undefined : BigInt(Math.round(opts.gasBudgetCSPR * 1e9));
     let closeReason = `reached ${maxTicks}-tick cap`;
 
     while (ticks < maxTicks) {
+      // Before paying: could this tick's gas cross the ceiling? Until one self-paid tick has been
+      // seen, assume the full gas limit.
+      if (gasBudgetMotes !== undefined && this.gasPerTickCeiling > 0n) {
+        const spent = this.gas.total - gasAtStart;
+        const next = lastGas > 0n ? lastGas : this.gasPerTickCeiling;
+        if (spent + next > gasBudgetMotes) {
+          closeReason = `gas budget ${opts.gasBudgetCSPR} CSPR reached`;
+          break;
+        }
+      }
       await new Promise((r) => setTimeout(r, tickMs));
       ticks++;
       let data: any;
@@ -278,11 +359,13 @@ export class Sluice {
         totalPaid = BigInt(current.totalPaid);
         if (t.txHash) txHashes.push(t.txHash);
         settleTimes.push(t.settleMs);
+        if (t.gasMotes > 0n) lastGas = t.gasMotes;
         const billedSeconds = Math.max(0, ((current.settledMs ?? 0) - settledMsBefore) / 1000);
         settledMsBefore = current.settledMs ?? settledMsBefore;
-        opts.onTick?.({ tick: ticks, data, transactionHash: t.txHash, txHash: t.txHash, settleMs: t.settleMs, billedSeconds, session: current });
+        opts.onTick?.({ tick: ticks, data, transactionHash: t.txHash, txHash: t.txHash, settleMs: t.settleMs, billedSeconds, gasMotes: t.gasMotes, session: current });
       } catch (err) {
-        closeReason = `stream interrupted (${(err as Error).message.slice(0, 80)})`;
+        // The full message (it may name a transfer that moved tokens) stays in the summary.
+        closeReason = `stream interrupted (${(err as Error).message})`;
         break;
       }
       const lastCost = totalPaid - prevPaid;
@@ -299,8 +382,17 @@ export class Sluice {
       }
     }
 
-    const closed = await this.close(session.id, closeReason);
-    return { session: closed, ticks, totalPaidMotes: totalPaid, closeReason, transactionHashes: txHashes, txHashes: [...txHashes], settlement: this.live ? timing(settleTimes) : null };
+    const closed = await this.close(session.id, closeReason.slice(0, 200));
+    return {
+      session: closed,
+      ticks,
+      totalPaidMotes: totalPaid,
+      closeReason,
+      transactionHashes: txHashes,
+      txHashes: [...txHashes],
+      settlement: this.live ? timing(settleTimes) : null,
+      gasPaidMotes: this.gas.total - gasAtStart,
+    };
   }
 
   private async post(path: string, body?: unknown): Promise<any> {

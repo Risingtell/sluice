@@ -18,6 +18,10 @@
  *                       server's first Casper offer (testnet on the hosted server)
  *   CLIENT_PRIVATE_KEY_PATH  PEM Casper key that signs live payments
  *   CLIENT_KEY_ALGO     ed25519 (default) | secp256k1
+ *   SLUICE_PAY_GAS      unset: the server pays gas where it offers to, else this agent;
+ *                       1: this agent always pays its own gas (needed on mainnet, ~3.3 CSPR a tick);
+ *                       0: only accept servers that pay the gas
+ *   SLUICE_GAS_LIMIT_MOTES  gas limit per self-paid transfer (default 5000000000 = 5 CSPR)
  *
  * Claude Code registration example:
  *   claude mcp add sluice -- npx -y sluice-mcp
@@ -42,6 +46,8 @@ function sluice(): Promise<Sluice> {
     network: process.env.SLUICE_NETWORK || undefined,
     keyPath: process.env.CLIENT_PRIVATE_KEY_PATH,
     keyAlgo: process.env.CLIENT_KEY_ALGO === "secp256k1" ? "secp256k1" : "ed25519",
+    payGas: process.env.SLUICE_PAY_GAS === "1" ? true : process.env.SLUICE_PAY_GAS === "0" ? false : undefined,
+    gasLimitMotes: process.env.SLUICE_GAS_LIMIT_MOTES ? Number(process.env.SLUICE_GAS_LIMIT_MOTES) : undefined,
   });
   return sluicePromise;
 }
@@ -126,6 +132,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           network: t.network || null,
           explorerUrl: t.explorerUrl || null,
           settleMs: t.settleMs,
+          gasPaidMotes: t.gasMotes.toString(),
         });
       }
       case "close_session":

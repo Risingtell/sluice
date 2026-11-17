@@ -37,8 +37,21 @@ const store = new Store(streams, cfg.snapshotPath);
  * payment middleware. Without this, quota exhaustion (~300 calls/day, shared) makes the server
  * crash at init; a public demo must degrade gracefully instead.
  */
+/**
+ * Narrows the networks this server sponsors, and drops any network left with no way to pay on it
+ * (not sponsored, and buyer-settle not offered there).
+ */
+function applySponsored(sponsored: string[]): void {
+  cfg.sponsoredNetworks = sponsored;
+  cfg.networks = cfg.networks.filter((n) => sponsored.includes(n.id) || cfg.buyerSettleNetworks.includes(n.id));
+  cfg.network = cfg.networks[0]?.id ?? cfg.network;
+  cfg.assetPackage = cfg.networks[0]?.assetPackage ?? cfg.assetPackage;
+}
+
 async function facilitatorReady(): Promise<boolean> {
   if (cfg.mode !== "live") return false;
+  // Buyer-settle needs no facilitator: with nothing to sponsor there is nothing to check.
+  if (!cfg.sponsoredNetworks.length) return cfg.networks.length > 0;
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 8000);
@@ -48,24 +61,22 @@ async function facilitatorReady(): Promise<boolean> {
     });
     clearTimeout(t);
     if (!res.ok) {
-      console.warn(`   facilitator preflight: HTTP ${res.status}; starting degraded (no live settlement)`);
-      return false;
+      console.warn(`   facilitator preflight: HTTP ${res.status}; not sponsoring gas anywhere`);
+      applySponsored([]);
+      return cfg.networks.length > 0;
     }
     // A remote facilitator may not settle on every network we sell on. Offering one it cannot
     // settle makes every 402 fail to build, testnet included, so offer only what it supports.
     const body = (await res.json().catch(() => ({}))) as { kinds?: { scheme?: string; network?: string }[] };
     const supported = new Set((body.kinds ?? []).filter((k) => k.scheme === "exact").map((k) => String(k.network)));
-    const usable = cfg.networks.filter((n) => supported.has(n.id));
-    const dropped = cfg.networks.filter((n) => !supported.has(n.id)).map((n) => n.id);
-    if (dropped.length) console.warn(`   facilitator ${cfg.facilitatorUrl} does not settle on ${dropped.join(", ")}; not offering it`);
-    if (!usable.length) return false;
-    cfg.networks = usable;
-    cfg.network = usable[0].id;
-    cfg.assetPackage = usable[0].assetPackage;
-    return true;
+    const dropped = cfg.sponsoredNetworks.filter((id) => !supported.has(id));
+    if (dropped.length) console.warn(`   facilitator ${cfg.facilitatorUrl} does not settle on ${dropped.join(", ")}; not sponsoring it`);
+    applySponsored(cfg.sponsoredNetworks.filter((id) => supported.has(id)));
+    return cfg.networks.length > 0;
   } catch (err) {
-    console.warn(`   facilitator preflight failed (${(err as Error).message}); starting degraded`);
-    return false;
+    console.warn(`   facilitator preflight failed (${(err as Error).message}); not sponsoring gas anywhere`);
+    applySponsored([]);
+    return cfg.networks.length > 0;
   }
 }
 
@@ -83,9 +94,10 @@ async function facilitatorReady(): Promise<boolean> {
  * listening yet at this point in startup.
  */
 let selfFacilitator: Awaited<ReturnType<typeof createFacilitatorRouter>> | null = null;
-if (cfg.mode === "live" && process.env.SELF_FACILITATOR !== "0") {
+// It only ever serves the networks this server sponsors, so its fee payer never signs on any other.
+if (cfg.mode === "live" && cfg.sponsoredNetworks.length && process.env.SELF_FACILITATOR !== "0") {
   try {
-    selfFacilitator = await createFacilitatorRouter(facilitatorOptionsFromEnv());
+    selfFacilitator = await createFacilitatorRouter({ ...facilitatorOptionsFromEnv(), networks: [...cfg.sponsoredNetworks] });
     cfg.facilitatorUrl = `http://127.0.0.1:${cfg.port}/facilitator`;
     console.log(`   self-hosted facilitator: fee payer ${selfFacilitator.feePayer.join(", ").slice(0, 24)}`);
   } catch (err) {
@@ -109,7 +121,15 @@ app.use(express.json());
 if (selfFacilitator) app.use("/facilitator", selfFacilitator.router);
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", mode: cfg.mode, network: cfg.network, networks: cfg.networks.map((n) => n.id), liveSettlement: cfg.mode !== "live" || liveReady });
+  res.json({
+    status: "ok",
+    mode: cfg.mode,
+    network: cfg.network,
+    networks: cfg.networks.map((n) => n.id),
+    liveSettlement: cfg.mode !== "live" || liveReady,
+    // Who pays the gas for each payment, per network: this server ("exact") or the buyer ("buyer-settle").
+    ...(cfg.mode === "live" ? { sponsoredNetworks: cfg.sponsoredNetworks, buyerSettleNetworks: cfg.buyerSettleNetworks } : {}),
+  });
 });
 
 app.get("/streams", (_req, res) => {

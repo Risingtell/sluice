@@ -25,6 +25,14 @@ export interface ServerConfig {
   network: string;
   /** Every network LIVE mode accepts payment on, default first. Empty in MOCK mode. */
   networks: NetworkSpec[];
+  /**
+   * Networks where this server's facilitator submits each payment and pays its gas (the x402
+   * "exact" scheme). Never mainnet unless SPONSORED_NETWORKS names it: the operator must not pay
+   * for other people's transactions by default.
+   */
+  sponsoredNetworks: string[];
+  /** Networks where the buyer submits its own payment and pays its own gas ("buyer-settle"). */
+  buyerSettleNetworks: string[];
   facilitatorUrl: string;
   facilitatorApiKey: string;
   maxTickSeconds: number;
@@ -55,10 +63,27 @@ export function networksFromEnv(env: NodeJS.ProcessEnv = process.env): NetworkSp
   return listed.filter((n) => n.assetPackage);
 }
 
+/**
+ * Who pays gas, per network. SPONSORED_NETWORKS lists where this server pays (default: every
+ * served network except mainnet); BUYER_SETTLE_NETWORKS lists where the buyer pays (default: every
+ * served network, since offering it costs the server nothing). Both are cut down to the networks
+ * actually served; a network with neither is dropped.
+ */
+export function settlementModesFromEnv(served: string[], env: NodeJS.ProcessEnv = process.env): { sponsored: string[]; buyerSettle: string[] } {
+  const pick = (list: string | undefined, fallback: string[]) => (list === undefined ? fallback : parseNetworks(list).filter((n) => served.includes(n)));
+  return {
+    sponsored: pick(env.SPONSORED_NETWORKS, served.filter((n) => n !== MAINNET)),
+    buyerSettle: pick(env.BUYER_SETTLE_NETWORKS, served),
+  };
+}
+
 export function loadConfig(): ServerConfig {
   const mode = (process.env.MODE === "live" ? "live" : "mock") as Mode;
   const assetName = process.env.ASSET_NAME || "X402";
-  const networks = mode === "live" ? networksFromEnv() : [];
+  const served = mode === "live" ? networksFromEnv() : [];
+  const modes = settlementModesFromEnv(served.map((n) => n.id));
+  // A network nobody can pay on is not offered at all.
+  const networks = served.filter((n) => modes.sponsored.includes(n.id) || modes.buyerSettle.includes(n.id));
   return {
     port: parseInt(process.env.PORT || "4021", 10),
     mode,
@@ -69,6 +94,8 @@ export function loadConfig(): ServerConfig {
     assetPackage: networks[0]?.assetPackage ?? "",
     network: networks[0]?.id ?? "mock",
     networks,
+    sponsoredNetworks: modes.sponsored.filter((id) => networks.some((n) => n.id === id)),
+    buyerSettleNetworks: modes.buyerSettle.filter((id) => networks.some((n) => n.id === id)),
     facilitatorUrl: process.env.FACILITATOR_URL || "https://x402-facilitator.cspr.cloud",
     facilitatorApiKey: process.env.FACILITATOR_API_KEY || "",
     maxTickSeconds: parseInt(process.env.MAX_TICK_SECONDS || "10", 10),

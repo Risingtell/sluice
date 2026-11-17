@@ -50,6 +50,23 @@ The hosted server runs a faucet that sends X402 test tokens to your account; see
 Against a server that takes mainnet too, pass `network: "casper:casper"` or
 `"casper:casper-test"` to choose; the SDK never picks a server or a network you did not ask for.
 
+**Who pays the gas.** Each tick is one CEP-18 transfer, and its gas (about 3.3 CSPR) is paid by
+whoever submits it. A server can submit it for you (`exact`), or ask you to submit it from your own
+account (`buyer-settle`). Mainnet Sluice servers do not pay gas for buyers.
+
+```ts
+const sluice = await Sluice.connect({ mode: "live", keyPath, serverUrl, payGas: true });
+const summary = await sluice.stream("btc-usd", { maxTicks: 5, gasBudgetCSPR: 20 });
+console.log(summary.gasPaidMotes); // gas this agent paid, in motes
+```
+
+`payGas: true` always pays its own gas and refuses a server that does not offer it; `false` accepts
+only servers that pay it; unset takes the server's offer where there is one, otherwise pays. Your
+account needs CSPR for gas as well as the payment token. `gasLimitMotes` (default 5 CSPR) caps each
+transfer, `rpcUrls` picks the node per network, each tick reports `gasMotes`, and `gasBudgetCSPR`
+stops a session before its gas crosses a ceiling. If a server refuses a tick after your transfer
+executed, the error names the transaction hash.
+
 ## API
 
 | Method | What |
@@ -57,7 +74,7 @@ Against a server that takes mainnet too, pass `network: "casper:casper"` or
 | `Sluice.connect(opts)` | build a client; `mode: "live"` wires the x402 payment signer |
 | `listStreams()` | the server's metered catalogue with per-second rates |
 | `open(streamId)` | open a session (free; only ticking costs) |
-| `payTick(sessionId)` | pay one tick, get the next chunk (+ `transactionHash`, explorer link and `settleMs` when live) |
+| `payTick(sessionId)` | pay one tick, get the next chunk (+ `transactionHash`, explorer link, `settleMs` and `gasMotes` when live) |
 | `close(sessionId, reason)` | close the gate |
 | `stream(streamId, opts)` | the full autonomous loop: budget guard + your `decide()` policy |
 | `impact()` | the public proof feed |

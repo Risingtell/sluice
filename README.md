@@ -100,6 +100,7 @@ the capital-efficient, autonomous behaviour Casper's agent-economy vision is bui
 | Per-tick payment challenge + retry | `@x402/express` `paymentMiddleware` with `DynamicPrice` (per-tick variable pricing) |
 | Agent signs each tick | `@make-software/casper-x402` `ExactCasperScheme` client, EIP-712 `transfer_with_authorization` over CEP-18 |
 | Settlement without agent gas | Self-hosted x402 facilitator (`facilitator/`, official `@make-software/casper-x402` scheme) `/verify` + `/settle`, its sponsored feePayer pays the gas |
+| Settlement where the agent pays its own gas | `buyer-settle` scheme (`shared/buyer-settle.ts`): the agent submits the same `transfer_with_authorization` from its own account; the server reads the executed transaction from a Casper node and checks token, payee, amount and the quote's nonce |
 | Payment token | Our own deployed CEP-18 `X402` token contract (Odra), package `658bb84b...` |
 | Per-provider routing | `DynamicPayTo`: each stream's ticks settle to that provider's own Casper account |
 | On-chain anchoring of terms + totals | Our own deployed `SluiceRegistry` contract (Odra), package `a7cbd09c...` |
@@ -202,7 +203,7 @@ hash proves nothing on its own.
 npm test
 ```
 
-40 tests, named after the claim each one defends. Seven of them assert against the real committed
+62 tests, named after the claim each one defends. Seven of them assert against the real committed
 on-chain ledger snapshot, so if the published numbers ever drift above what Casper actually shows,
 the suite fails instead of the over-claim shipping.
 
@@ -237,8 +238,8 @@ LIVE keep separate snapshot files, so simulated events never mix into the on-cha
 ### LIVE on Casper mainnet and testnet
 Fill the LIVE section of `.env` (a funded ed25519 account and the CEP-18 token package for each
 network) and set `MODE=live`. The template takes testnet only; to take mainnet as well, set
-`NETWORKS=casper:casper,casper:casper-test` and `ASSET_PACKAGE_MAINNET`, and your fee payer pays
-that gas:
+`NETWORKS=casper:casper,casper:casper-test` and `ASSET_PACKAGE_MAINNET`. On mainnet the buyer pays
+its own gas (see "Who pays the gas" below):
 ```bash
 MODE=live npm run server
 MODE=live CLIENT_PRIVATE_KEY_PATH=keys/agent.pem npm run agent                                  # pays on the server's default network
@@ -248,8 +249,34 @@ The server offers one payment option per network, in `NETWORKS` order, and its o
 each on that network's node with the same fee-payer key. An agent that names a network pays only
 there, and refuses a server that does not offer it. An older `.env` that sets `CAIP2_CHAIN_ID`
 keeps the agent on that network, so an existing testnet setup never starts spending on mainnet by
-surprise; set `AGENT_NETWORK` to choose. A mainnet settlement costs the fee payer about
-3.3 CSPR of gas (5 CSPR charged, about 1.7 refunded).
+surprise; set `AGENT_NETWORK` to choose. A settlement costs about 3.3 CSPR of gas (5 CSPR charged,
+about 1.7 refunded), paid by whoever submits it.
+
+### Who pays the gas
+
+Every tick is one CEP-18 `transfer_with_authorization`. Who submits it, and so who pays its gas, is
+set per network:
+
+| Scheme | Who submits and pays gas | Offered on |
+|---|---|---|
+| `exact` | the server's facilitator | `SPONSORED_NETWORKS` (default: every served network **except mainnet**) |
+| `buyer-settle` | the buyer, from its own account | `BUYER_SETTLE_NETWORKS` (default: every served network) |
+
+In `buyer-settle` the 402 carries a fresh random nonce for that tick. The buyer signs its
+authorization with it, submits the transfer itself, waits for it to execute, and sends the
+transaction hash. The server submits nothing and holds no fee-payer key for that network: it reads
+the transaction from a Casper node and accepts it only if it executed without error and calls the
+payment token's `transfer_with_authorization` with this tick's payee, amount and nonce. The token
+refuses a nonce it has seen, so one transfer pays one tick, and nobody can claim someone else's
+transfer for their own session. Mainnet is sponsored only if `SPONSORED_NETWORKS` names it, so an
+operator never pays for other people's payments by default.
+
+With the SDK, `payGas: true` makes the agent always pay its own gas (needed on mainnet),
+`payGas: false` accepts only servers that pay it, and unset takes the server's offer where there is
+one. Each tick reports `gasMotes`, the session reports `gasPaidMotes`, and `gasBudgetCSPR` stops the
+session before its gas crosses a ceiling. Try it on testnet:
+`SERVER_URL=http://localhost:4021 BUYER_KEY=keys/agent2.pem npx tsx scripts/buyer-settle-run.ts`
+(the buyer needs test CSPR for gas and X402 tokens to pay with).
 Sustained load for the proof feed: `WORKERS=3 TICK_MS=2000 TICKS=12 bash scripts/volume.sh`.
 Multi-agent economy run: `ROUNDS=1 TICK_MS=2500 bash scripts/economy.sh`.
 

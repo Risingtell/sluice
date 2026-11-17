@@ -15,6 +15,7 @@
     "prepack": "node ../scripts/build-packages.mjs mcp"
   },
   "dependencies": {
+    "@casper-ecosystem/casper-eip-712": "1.2.1",
     "@make-software/casper-x402": "^1.0.0",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@x402/fetch": "2.16.0",
