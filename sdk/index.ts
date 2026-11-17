@@ -197,6 +197,13 @@ export function chooseOffer<T extends { network: string; scheme: string }>(versi
 
 type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
+/** CSPR (9 decimals) to motes, exactly: 1.5 -> 1500000000n. */
+function toMotes(amount: number): bigint {
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error(`amount must be a positive number of CSPR, got ${amount}`);
+  const [whole, frac = ""] = amount.toFixed(9).split(".");
+  return BigInt(whole) * 1_000_000_000n + BigInt(frac.padEnd(9, "0"));
+}
+
 type ReadSettlement = (r: Response) => { tx: string; network: string };
 
 export class Sluice {
@@ -213,7 +220,7 @@ export class Sluice {
     /** Worst-case gas for one self-paid tick, in motes; 0 when this agent never pays gas. */
     private readonly gasPerTickCeiling: bigint = 0n,
     /** LIVE: the agent's key, for wrapping and unwrapping CSPR. */
-    private readonly wallet?: { casperSdk: any; privateKey: any },
+    private readonly wallet?: { casperSdk: any; privateKey: any; rpcUrls?: Record<string, string> },
   ) {}
 
   static async connect(opts: SluiceConnectOptions = {}): Promise<Sluice> {
@@ -259,23 +266,25 @@ export class Sluice {
       return { tx: settled?.transaction ?? "", network: String(settled?.network || chosen) };
     };
     const ceiling = opts.payGas === false ? 0n : BigInt(opts.gasLimitMotes ?? 5_000_000_000);
-    return new Sluice(serverUrl, tickFetch, readTx, signer.accountAddress(), true, gas, ceiling, { casperSdk, privateKey });
+    return new Sluice(serverUrl, tickFetch, readTx, signer.accountAddress(), true, gas, ceiling, { casperSdk, privateKey, rpcUrls: opts.rpcUrls });
   }
 
   /**
    * LIVE: wrap CSPR from this agent's account into WCSPR (1:1), the token mainnet Sluice servers are
    * paid in. Customers buy CSPR (Casper Wallet's Buy, cspr.live, or an exchange) and wrap it here.
-   * The network is always named: wrapping spends the account's own CSPR, about 4 CSPR of gas each.
+   * The network is always named: wrapping spends the account's own CSPR, about 3.2 CSPR of gas each.
    */
   async wrapCspr(amountCSPR: number, network: string, opts: { gasLimitMotes?: number; rpcUrl?: string } = {}): Promise<WrapResult> {
     if (!this.wallet) throw new Error("wrapCspr needs live mode (a key)");
-    return wrapCspr(this.wallet.casperSdk, this.wallet.privateKey, BigInt(Math.round(amountCSPR * 1e9)), { network, ...opts });
+    const rpcUrl = opts.rpcUrl || this.wallet.rpcUrls?.[network];
+    return wrapCspr(this.wallet.casperSdk, this.wallet.privateKey, toMotes(amountCSPR), { network, ...opts, rpcUrl });
   }
 
-  /** LIVE: unwrap WCSPR back into CSPR in this agent's account (about 2 to 3 CSPR of gas). */
+  /** LIVE: unwrap WCSPR back into CSPR in this agent's account (about 3.5 CSPR of gas). */
   async unwrapCspr(amountWCSPR: number, network: string, opts: { gasLimitMotes?: number; rpcUrl?: string } = {}): Promise<WrapResult> {
     if (!this.wallet) throw new Error("unwrapCspr needs live mode (a key)");
-    return unwrapCspr(this.wallet.casperSdk, this.wallet.privateKey, BigInt(Math.round(amountWCSPR * 1e9)), { network, ...opts });
+    const rpcUrl = opts.rpcUrl || this.wallet.rpcUrls?.[network];
+    return unwrapCspr(this.wallet.casperSdk, this.wallet.privateKey, toMotes(amountWCSPR), { network, ...opts, rpcUrl });
   }
 
   /** The catalogue of metered streams the server offers. */

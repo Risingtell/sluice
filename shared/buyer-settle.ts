@@ -104,18 +104,33 @@ export function checkSettlement(result: any, expect: SettlementExpectation): Set
   if (!from.startsWith("account-hash-") || !isHex64(from.slice("account-hash-".length))) return fail("transaction has no paying account");
 
   const exec = result?.execution_info;
-  const er = exec?.execution_result?.Version2 ?? exec?.execution_result?.Version1;
+  const er = readExecution(exec?.execution_result);
   if (!exec || !er) return fail("transaction not executed yet", true);
 
-  let gasMotes = "0";
-  try {
-    gasMotes = (BigInt(er.cost ?? 0) - BigInt(er.refund ?? 0)).toString();
-  } catch {
-    /* a node that omits cost or refund still executed the transaction; gas stays unreported */
-  }
-  if (er.error_message) return { ok: false, pending: false, reason: `transaction failed on chain: ${er.error_message}`, gasMotes };
+  const gasMotes = er.gasMotes.toString();
+  if (er.error) return { ok: false, pending: false, reason: `transaction failed on chain: ${er.error}`, gasMotes };
   const initiator = payload.initiator_addr?.PublicKey ?? payload.initiator_addr?.AccountHash ?? "";
   return { ok: true, payer: "00" + from.slice("account-hash-".length), initiator: String(initiator), gasMotes, blockHeight: Number(exec.block_height ?? 0) };
+}
+
+/**
+ * A Casper execution result in either shape: Version2 ({cost, refund, error_message}) or the
+ * pre-2.0 Version1 ({Success: {cost}} or {Failure: {cost, error_message}}). Null if not executed.
+ */
+export function readExecution(executionResult: any): { gasMotes: bigint; error?: string } | null {
+  const motes = (cost: unknown, refund: unknown = 0): bigint => {
+    try {
+      return BigInt(String(cost ?? 0)) - BigInt(String(refund ?? 0));
+    } catch {
+      return 0n; // a node that omits cost or refund still executed the transaction
+    }
+  };
+  const v2 = executionResult?.Version2;
+  if (v2) return { gasMotes: motes(v2.cost, v2.refund), error: v2.error_message || undefined };
+  const v1 = executionResult?.Version1;
+  if (v1?.Failure) return { gasMotes: motes(v1.Failure.cost), error: v1.Failure.error_message || "execution failed" };
+  if (v1?.Success) return { gasMotes: motes(v1.Success.cost) };
+  return null;
 }
 
 /**

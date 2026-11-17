@@ -117,8 +117,9 @@ export class Store {
   }
 
   /** Cumulative totals across every settlement ever recorded, on one network when given. */
-  totals(network?: string): { settlements: number; totalPaid: bigint; uniqueAgents: number; uniqueProviders: number; secondsStreamed: number } {
+  totals(network?: string): { settlements: number; totalPaid: bigint; paidByAsset: Map<string, bigint>; uniqueAgents: number; uniqueProviders: number; secondsStreamed: number } {
     let totalPaid = 0n;
+    const paidByAsset = new Map<string, bigint>();
     let secondsStreamed = 0;
     let settlements = 0;
     const agents = new Set<string>();
@@ -127,6 +128,7 @@ export class Store {
       if (!this.on(e, network)) continue;
       settlements++;
       totalPaid += BigInt(e.amount);
+      paidByAsset.set(e.asset, (paidByAsset.get(e.asset) ?? 0n) + BigInt(e.amount));
       secondsStreamed += e.seconds;
       agents.add(e.agent);
       // Count distinct provider BUSINESSES (resolved from the stream catalogue), not payout
@@ -134,7 +136,7 @@ export class Store {
       // keeps the stat consistent with the Provider column on the dashboard.
       providers.add(this.streams.get(e.streamId)?.provider ?? e.payTo);
     }
-    return { settlements, totalPaid, uniqueAgents: agents.size, uniqueProviders: providers.size, secondsStreamed };
+    return { settlements, totalPaid, paidByAsset, uniqueAgents: agents.size, uniqueProviders: providers.size, secondsStreamed };
   }
 
   /** Recent autonomous gate-closures: agents that closed their own stream, newest first. */

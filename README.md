@@ -203,7 +203,7 @@ hash proves nothing on its own.
 npm test
 ```
 
-72 tests, named after the claim each one defends. Seven of them assert against the real committed
+74 tests, named after the claim each one defends. Seven of them assert against the real committed
 on-chain ledger snapshot, so if the published numbers ever drift above what Casper actually shows,
 the suite fails instead of the over-claim shipping.
 
@@ -354,12 +354,12 @@ itself once it had seen two new mainnet blocks.
 
 | Method & path | What |
 |---|---|
-| `GET /streams` | catalogue of metered streams (BTC/USD, ETH/USD, Casper mainnet blocks) + per-second rate |
+| `GET /streams` | catalogue of metered streams (BTC/USD, ETH/USD, Casper mainnet blocks) + per-second rate, and `assets`: the token each network is paid in |
 | `POST /sessions` | open a metered session for a stream |
 | `POST /tick?session=<id>` | bill elapsed seconds and settle one payment (the per-second tick); the 402 offers each network the server takes, its default first |
 | `POST /sessions/:id/close` | close the gate |
-| `GET /impact?network=` | cumulative totals + recent settlements for one network (JSON proof feed; testnet by default) |
-| `GET /faucet`, `POST /faucet` | X402 tokens for your own agent, per network (`{"address","network"}`) |
+| `GET /impact?network=` | cumulative totals + recent settlements for one network (JSON proof feed; testnet by default); amounts in different tokens are never added together (`paidByAsset`) |
+| `GET /faucet`, `POST /faucet` | X402 test tokens for your own agent, test networks only (`{"address","network"}`); no mainnet faucet |
 | `GET /health` | liveness, plus the networks this server takes payment on |
 
 ## Layout

@@ -1,16 +1,17 @@
 /**
- * X402 token faucet: lets any agent onboard itself.
+ * X402 test-token faucet: lets any agent onboard itself on a test network. It never runs on
+ * mainnet: mainnet customers buy their own tokens and pay their own gas (README, "Paying on
+ * mainnet"), so nothing here ever spends real CSPR for someone else.
  *
  * Sluice's whole claim is that an autonomous agent can rent a metered resource and pay for it. That
  * was only half true while the CEP-18 X402 token existed solely in our own accounts: a third-party
  * agent could discover streams, open a session and speak the protocol correctly, then hit a 402 it
  * had no means to satisfy. This route closes that gap. Point an agent at it, get tokens, stream.
  *
- * It moves real value and spends real gas, so it is bounded on three axes, per network:
+ * It moves test tokens and spends test gas, so it is bounded on three axes, per network:
  *   - one grant per recipient address, ever (this is a demo faucet, not a supply)
  *   - a per-IP daily cap
  *   - a global daily cap, so total gas exposure per day is knowable in advance
- * Mainnet gets tighter caps than testnet: every mainnet grant spends about 3.3 CSPR of real gas.
  * It also refuses to serve when the fee payer's CSPR is low, rather than emitting failing deploys.
  *
  * Requests are serialized: two concurrent CEP-18 transfers from the same account race on the
@@ -25,15 +26,11 @@ import { MAINNET, TESTNET, chainNameFor, explorerFor, explorerTxUrl, labelFor, r
 
 /** One state file per network; testnet keeps the file it always had. */
 const TESTNET_STATE = process.env.FAUCET_STATE_PATH || "server/.data/faucet.json";
-const stateFileFor = (network: string) => (network === MAINNET ? process.env.FAUCET_MAINNET_STATE_PATH || "server/.data/faucet.mainnet.json" : TESTNET_STATE);
+const stateFileFor = (network: string) => (network === TESTNET ? TESTNET_STATE : `server/.data/faucet.${network.replace(/[^a-z0-9-]/gi, "_")}.json`);
 
 /** Base units granted per request. 9 decimals, so this is 0.1 X402: several full sessions. */
 const GRANT = BigInt(process.env.FAUCET_GRANT_UNITS || "100000000");
 const LIMITS: Record<string, { perIp: number; global: number }> = {
-  [MAINNET]: {
-    perIp: parseInt(process.env.FAUCET_MAINNET_PER_IP_PER_DAY || "1", 10),
-    global: parseInt(process.env.FAUCET_MAINNET_GLOBAL_PER_DAY || "10", 10),
-  },
   [TESTNET]: {
     perIp: parseInt(process.env.FAUCET_PER_IP_PER_DAY || "3", 10),
     global: parseInt(process.env.FAUCET_GLOBAL_PER_DAY || "40", 10),
@@ -139,7 +136,7 @@ export function mountFaucet(app: Express, cfg: ServerConfig): void {
       grant: `${Number(GRANT) / 1e9} ${cfg.assetName}`,
       remainingToday: listed[0]?.remainingToday ?? 0,
       oneGrantPerAddress: true,
-      usage: `POST /faucet {"address":"00<64 hex account hash>","network":"${listed[0]?.network ?? MAINNET}"}; network is optional and defaults to ${listed[0] ? listed[0].label : "the first network"}`,
+      usage: `POST /faucet {"address":"00<64 hex account hash>","network":"${listed[0]?.network ?? TESTNET}"}; network is optional and defaults to ${listed[0] ? listed[0].label : "the first network"}`,
     });
   });
 

@@ -86,7 +86,13 @@ export function loadConfig(): ServerConfig {
   // The facilitator builds transfer_with_authorization with an "amount" argument, so it can only
   // sponsor tokens that read "amount". A WCSPR network is buyer-settle only.
   const unsponsorable = served.filter((n) => tokenProfile(n.assetPackage, assetName).amountArg !== "amount").map((n) => n.id);
-  if (modes.sponsored.some((id) => unsponsorable.includes(id))) console.warn(`   ${unsponsorable.join(", ")}: WCSPR is paid buyer-settle only; not sponsoring it`);
+  for (const id of modes.sponsored.filter((x) => unsponsorable.includes(x))) {
+    console.warn(
+      modes.buyerSettle.includes(id)
+        ? `   ${id}: WCSPR is never sponsored; offered buyer-settle only (the buyer pays its gas)`
+        : `   ${id}: WCSPR is never sponsored and ${id} is not in BUYER_SETTLE_NETWORKS, so it is NOT offered`,
+    );
+  }
   modes.sponsored = modes.sponsored.filter((id) => !unsponsorable.includes(id));
   // A network nobody can pay on is not offered at all.
   const networks = served.filter((n) => modes.sponsored.includes(n.id) || modes.buyerSettle.includes(n.id));

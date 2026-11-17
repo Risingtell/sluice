@@ -133,8 +133,18 @@ app.get("/health", (_req, res) => {
   });
 });
 
+// The token each network is paid in, by the symbol settlements are recorded under (X402 or
+// WCSPR), and the label the proof feed shows for it (the configured name for the X402 token).
+const symbolOn = (network?: string): string => tokenProfile(cfg.networks.find((n) => n.id === network)?.assetPackage ?? "", cfg.asset).symbol;
+const assetOn = (network?: string): string => (symbolOn(network) === "WCSPR" ? "WCSPR" : cfg.asset);
+const networkAssets: Record<string, string> = Object.fromEntries(cfg.networks.map((n) => [n.id, symbolOn(n.id)]));
+const servedAssets = [...new Set(Object.values(networkAssets))];
+
 app.get("/streams", (_req, res) => {
-  res.json({ streams: STREAMS });
+  // Rates are in the token's smallest unit. When every network takes the same token, each stream
+  // names it; `assets` always says which token each network takes.
+  const streams = servedAssets.length === 1 ? STREAMS.map((s) => ({ ...s, asset: servedAssets[0] })) : STREAMS;
+  res.json({ streams, assets: networkAssets });
 });
 
 // Open a streaming session.
@@ -215,15 +225,18 @@ app.get("/impact", (req, res) => {
   }
   const network = asked || (cfg.mode === "live" ? proofNetwork : undefined);
   const t = store.totals(network);
+  const symbol = symbolOn(network);
   const snapshot: ImpactSnapshot = {
     network: network ?? cfg.network,
     networks: known.map((id) => ({ id, settlements: counts.get(id) ?? 0 })),
     mock: cfg.mode === "mock",
     totals: {
       settlements: t.settlements,
-      totalPaid: t.totalPaid.toString(),
-      // The token this network is paid in (WCSPR on a WCSPR network), not one label for all.
-      asset: tokenProfile(cfg.networks.find((n) => n.id === network)?.assetPackage ?? "", cfg.asset).symbol === "WCSPR" ? "WCSPR" : cfg.asset,
+      // The token this network is paid in now (WCSPR on a WCSPR network), and only amounts paid in
+      // it: a history that changed token keeps each token's total apart in paidByAsset.
+      totalPaid: (t.paidByAsset.get(symbol) ?? 0n).toString(),
+      asset: assetOn(network),
+      paidByAsset: [...t.paidByAsset].map(([a, amount]) => ({ asset: a, amount: amount.toString() })),
       activeSessions: store.activeSessionCount(),
       uniqueAgents: t.uniqueAgents,
       uniqueProviders: t.uniqueProviders,

@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chainNameFor, rpcFor } from "../shared/networks.ts";
 import { WCSPR_MAINNET, WCSPR_TESTNET } from "../shared/tokens.ts";
-import { casperRpc } from "../shared/buyer-settle.ts";
+import { casperRpc, readExecution } from "../shared/buyer-settle.ts";
 
 export const wcsprFor = (network: string): string => {
   if (network === "casper:casper") return WCSPR_MAINNET;
@@ -34,15 +34,16 @@ export interface WrapResult {
   blockHeight: number;
 }
 
-async function waitDeploy(rpcUrl: string, hash: string, waitMs: number): Promise<WrapResult> {
+/** Wait for a legacy deploy ("Deploy") or a Casper 2.0 transaction ("Version1") to execute. */
+async function waitExecuted(rpcUrl: string, kind: "Deploy" | "Version1", hash: string, waitMs: number): Promise<WrapResult> {
   const deadline = Date.now() + waitMs;
   for (;;) {
     try {
-      const r = await casperRpc(rpcUrl, "info_get_transaction", { transaction_hash: { Deploy: hash } });
-      const er = r?.execution_info?.execution_result?.Version2 ?? r?.execution_info?.execution_result?.Version1;
+      const r = await casperRpc(rpcUrl, "info_get_transaction", { transaction_hash: { [kind]: hash } });
+      const er = readExecution(r?.execution_info?.execution_result);
       if (er) {
-        if (er.error_message) throw Object.assign(new Error(`failed on chain: ${er.error_message} (${hash})`), { final: true });
-        return { transactionHash: hash, gasMotes: BigInt(er.cost ?? 0) - BigInt(er.refund ?? 0), blockHeight: Number(r.execution_info.block_height ?? 0) };
+        if (er.error) throw Object.assign(new Error(`failed on chain: ${er.error} (${hash})`), { final: true });
+        return { transactionHash: hash, gasMotes: er.gasMotes, blockHeight: Number(r.execution_info.block_height ?? 0) };
       }
     } catch (err) {
       if ((err as { final?: boolean }).final) throw err;
@@ -54,7 +55,7 @@ async function waitDeploy(rpcUrl: string, hash: string, waitMs: number): Promise
 
 export interface WrapOptions {
   network: string;
-  /** Gas limit in motes (default 10 CSPR; wrapping uses about 4). */
+  /** Gas limit in motes (default 10 CSPR to wrap, 5 to unwrap; about 3.2 and 3.5 are used). */
   gasLimitMotes?: number;
   rpcUrl?: string;
   waitMs?: number;
@@ -82,7 +83,7 @@ export async function wrapCspr(casperSdk: any, privateKey: any, amountMotes: big
   deploy.sign(privateKey);
   const put = await new C.RpcClient(new C.HttpHandler(rpcUrl)).putDeploy(deploy);
   const hash: string = put.deployHash?.toHex?.() ?? String(put.deployHash);
-  return waitDeploy(rpcUrl, hash, opts.waitMs ?? 180_000);
+  return waitExecuted(rpcUrl, "Deploy", hash, opts.waitMs ?? 180_000);
 }
 
 /** Unwrap `amountMotes` of the account's WCSPR back into CSPR. */
@@ -101,19 +102,5 @@ export async function unwrapCspr(casperSdk: any, privateKey: any, amountMotes: b
   tx.sign(privateKey);
   const put = await new C.RpcClient(new C.HttpHandler(rpcUrl)).putTransaction(tx);
   const hash: string = put.transactionHash.toHex();
-  const deadline = Date.now() + (opts.waitMs ?? 180_000);
-  for (;;) {
-    try {
-      const r = await casperRpc(rpcUrl, "info_get_transaction", { transaction_hash: { Version1: hash } });
-      const er = r?.execution_info?.execution_result?.Version2;
-      if (er) {
-        if (er.error_message) throw Object.assign(new Error(`failed on chain: ${er.error_message} (${hash})`), { final: true });
-        return { transactionHash: hash, gasMotes: BigInt(er.cost ?? 0) - BigInt(er.refund ?? 0), blockHeight: Number(r.execution_info.block_height ?? 0) };
-      }
-    } catch (err) {
-      if ((err as { final?: boolean }).final) throw err;
-    }
-    if (Date.now() > deadline) throw new Error(`not executed yet; it may still execute (${hash})`);
-    await new Promise((r) => setTimeout(r, 3000));
-  }
+  return waitExecuted(rpcUrl, "Version1", hash, opts.waitMs ?? 180_000);
 }

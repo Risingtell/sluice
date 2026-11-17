@@ -8,11 +8,14 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Store } from "../server/src/store.ts";
 import type { AddressInfo } from "node:net";
 import express from "express";
 import casperSdk from "casper-js-sdk";
 import { decodePaymentRequiredHeader, encodePaymentSignatureHeader } from "@x402/core/http";
-import { checkSettlement, claimMessage, SCHEME_BUYER_SETTLE, type SettlementCheck, type SettlementExpectation } from "../shared/buyer-settle.ts";
+import { checkSettlement, claimMessage, readExecution, SCHEME_BUYER_SETTLE, type SettlementCheck, type SettlementExpectation } from "../shared/buyer-settle.ts";
 import { chooseOffer } from "../sdk/index.ts";
 import { GasTracker } from "../sdk/buyer-settle.ts";
 import { BuyerSettleFacilitator } from "../server/src/buyer-settle.ts";
@@ -341,14 +344,19 @@ describe("mainnet customers pay in WCSPR, a token they can buy", () => {
   });
 
   test("a WCSPR network is never sponsored, even if SPONSORED_NETWORKS names it", () => {
-    const keep = { ...process.env };
+    const set = { MODE: "live", NETWORKS: TESTNET, ASSET_PACKAGE_TESTNET: WCSPR_TESTNET, SPONSORED_NETWORKS: TESTNET, BUYER_SETTLE_NETWORKS: TESTNET };
+    const before = Object.fromEntries(Object.keys(set).map((k) => [k, process.env[k]]));
     try {
-      Object.assign(process.env, { MODE: "live", NETWORKS: TESTNET, ASSET_PACKAGE_TESTNET: WCSPR_TESTNET, SPONSORED_NETWORKS: TESTNET, BUYER_SETTLE_NETWORKS: TESTNET });
+      Object.assign(process.env, set);
       const cfg = loadConfig();
       assert.deepEqual(cfg.sponsoredNetworks, []);
       assert.deepEqual(cfg.buyerSettleNetworks, [TESTNET]);
     } finally {
-      process.env = keep;
+      // Put each key back on the real env object (never replace process.env itself).
+      for (const [k, v] of Object.entries(before)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
     }
   });
 
@@ -398,5 +406,28 @@ describe("mainnet customers pay in WCSPR, a token they can buy", () => {
     } finally {
       server.close();
     }
+  });
+});
+
+describe("review fixes", () => {
+  test("a pre-2.0 Version1 execution result is read correctly: a Failure is a failure", () => {
+    assert.deepEqual(readExecution({ Version1: { Failure: { cost: "100", error_message: "User error: 60001" } } }), { gasMotes: 100n, error: "User error: 60001" });
+    assert.deepEqual(readExecution({ Version1: { Success: { cost: "70" } } }), { gasMotes: 70n });
+    assert.deepEqual(readExecution({ Version2: { cost: "90", refund: "10", error_message: null } }), { gasMotes: 80n, error: undefined });
+    assert.equal(readExecution(undefined), null);
+    const failed = checkSettlement({ ...FIXTURE, execution_info: { ...FIXTURE.execution_info, execution_result: { Version1: { Failure: { cost: "5", error_message: "boom" } } } } }, EXPECT);
+    assert.equal(failed.ok, false);
+    if (!failed.ok) assert.equal(failed.pending, false);
+  });
+
+  test("totals never add amounts paid in different tokens", () => {
+    const store = new Store(new Map(), join(tmpdir(), `sluice-totals-${process.pid}.json`));
+    const ev = (asset: string, amount: string) => ({ id: asset + amount, sessionId: "s", streamId: "x", agent: "a", payTo: "p", amount, asset, seconds: 1, tx: "t", network: TESTNET, at: 0 }) as unknown as SettlementEvent;
+    store.addEvent(ev("X402", "300"));
+    store.addEvent(ev("WCSPR", "5"));
+    const t = store.totals(TESTNET);
+    assert.equal(t.settlements, 2);
+    assert.equal(t.paidByAsset.get("X402"), 300n);
+    assert.equal(t.paidByAsset.get("WCSPR"), 5n);
   });
 });

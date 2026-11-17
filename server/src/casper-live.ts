@@ -74,8 +74,7 @@ export function mountCasperLive(
     facilitators.push(new BuyerSettleFacilitator({ rpcByNetwork, confirm: deps.confirm }));
   }
 
-  // EIP-712 domain fields must match the deployed token exactly. The token is the same reference
-  // contract on every network, deployed under the same name, so only its package hash differs.
+  // EIP-712 domain fields must match the deployed token exactly.
   // Each network names its own token (the reference X402 token, or WCSPR) in its EIP-712 domain.
   const tokenOf = (n: { assetPackage: string }) => tokenProfile(n.assetPackage, cfg.assetName);
   const extraOf = (n: { assetPackage: string }) => {

@@ -110,8 +110,11 @@ export interface ImpactSnapshot {
   mock: boolean;
   totals: {
     settlements: number;
+    /** Paid in `asset` only: amounts in different tokens are never added together. */
     totalPaid: string;
     asset: string;
+    /** Every token this history was paid in, with its own total (more than one after a token change). */
+    paidByAsset?: { asset: string; amount: string }[];
     activeSessions: number;
     uniqueAgents: number;
     uniqueProviders: number;

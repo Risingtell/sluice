@@ -17,7 +17,7 @@ import {
   type SettlementExpectation,
 } from "../shared/buyer-settle.ts";
 import { chainNameFor, explorerTxUrl, rpcFor } from "../shared/networks.ts";
-import { isAmountArg } from "../shared/tokens.ts";
+import { isAmountArg, tokenProfile } from "../shared/tokens.ts";
 
 const ADDRESS = /^00[0-9a-f]{64}$/;
 
@@ -107,8 +107,9 @@ export class BuyerSettleClientScheme {
     if (!ADDRESS.test(payTo)) throw new Error(`buyer-settle: invalid payee ${payTo}`);
     if (!isHex64(nonce)) throw new Error("buyer-settle: the server sent no nonce for this tick");
     if (typeof name !== "string" || !name || typeof version !== "string" || !version) throw new Error("buyer-settle: token name/version missing");
-    // WCSPR names the amount "value", the reference X402 token "amount"; the server says which.
-    const amountArg = req.extra?.amountArg ?? "amount";
+    // WCSPR names the amount "value", the reference X402 token "amount". The server says which;
+    // a server that does not gets the name this SDK knows for the token.
+    const amountArg = req.extra?.amountArg ?? tokenProfile(asset, name).amountArg;
     if (!isAmountArg(amountArg)) throw new Error(`buyer-settle: unknown token amount argument ${amountArg}`);
 
     const network = String(req.network);
