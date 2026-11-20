@@ -63,7 +63,8 @@ async function wrap(amountCspr: number) {
   const wasmPath = process.env.ODRA_PROXY_CALLER_WASM;
   if (!wasmPath) throw new Error("set ODRA_PROXY_CALLER_WASM to proxy_caller_with_return.wasm");
   const motes = BigInt(Math.round(amountCspr * 1e9)).toString();
-  const gas = "10000000000"; // 10 CSPR limit; Casper refunds part of the unused gas
+  // 10 CSPR limit by default (WRAP_GAS_CSPR overrides); Casper refunds part of the unused gas
+  const gas = BigInt(Math.round(Number(process.env.WRAP_GAS_CSPR || "10") * 1e9)).toString();
 
   const args = C.Args.fromMap({
     package_hash: C.CLValue.newCLByteArray(Uint8Array.from(Buffer.from(WCSPR, "hex"))),
