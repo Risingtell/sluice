@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { loadConfig, RETIRED_STREAMS, STREAMS } from "./config.ts";
 import { tokenProfile } from "../../shared/tokens.ts";
+import { clientIpInfo } from "../../shared/client-ip.ts";
 import { Store } from "./store.ts";
 import { StreamingMeter, MeterError } from "./meter.ts";
 import { MockSettlementProvider, type SettlementProvider } from "./settlement.ts";
@@ -121,7 +122,7 @@ app.use(express.json());
 // The self-hosted facilitator shares this process, so the resource server reaches it over loopback.
 if (selfFacilitator) app.use("/facilitator", selfFacilitator.router);
 
-app.get("/health", (_req, res) => {
+app.get("/health", (req, res) => {
   res.json({
     status: "ok",
     mode: cfg.mode,
@@ -130,6 +131,8 @@ app.get("/health", (_req, res) => {
     liveSettlement: cfg.mode !== "live" || liveReady,
     // Who pays the gas for each payment, per network: this server ("exact") or the buyer ("buyer-settle").
     ...(cfg.mode === "live" ? { sponsoredNetworks: cfg.sponsoredNetworks, buyerSettleNetworks: cfg.buyerSettleNetworks } : {}),
+    // Where the per-visitor limits found this caller's address: the proxy header, or the socket.
+    clientIpFrom: clientIpInfo(req).from,
   });
 });
 

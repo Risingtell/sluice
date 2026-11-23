@@ -23,6 +23,8 @@ import { dirname } from "node:path";
 import type { ServerConfig } from "./config.ts";
 import { tokenProfile } from "../../shared/tokens.ts";
 import { MAINNET, TESTNET, chainNameFor, explorerFor, explorerTxUrl, labelFor, rpcFor, rpcOverride } from "../../shared/networks.ts";
+import { ipKeyGenerator } from "express-rate-limit";
+import { clientIp } from "../../shared/client-ip.ts";
 
 /** One state file per network; testnet keeps the file it always had. */
 const TESTNET_STATE = process.env.FAUCET_STATE_PATH || "server/.data/faucet.json";
@@ -153,7 +155,8 @@ export function mountFaucet(app: Express, cfg: ServerConfig): void {
     if (!spec) {
       return res.status(400).json({ error: `network must be one of ${networks.map((n) => n.id).join(", ")}` });
     }
-    const ip = String(req.ip || req.socket.remoteAddress || "unknown");
+    // IPv6 grouped by /56, as the rate limiter does, so one network cannot cycle its own addresses.
+    const ip = ipKeyGenerator(clientIp(req));
     const early = refusal(network, address, ip);
     if (early) return res.status(429).json(early);
 

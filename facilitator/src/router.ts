@@ -20,7 +20,8 @@
  * limit, so it can never be used as an open relay to drain the fee payer.
  */
 import { Router, type Request, type Response } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import { clientIp } from "../../shared/client-ip.ts";
 import { x402Facilitator } from "@x402/core/facilitator";
 import { createFacilitatorCasperSigner, registerExactCasperFacilitatorScheme } from "@make-software/casper-x402";
 import { TESTNET, parseNetworks, rpcFor, rpcOverride } from "../../shared/networks.ts";
@@ -102,6 +103,8 @@ export async function createFacilitatorRouter(
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: "rate_limited" },
+    // Per visitor, not per proxy: behind Cloudflare and Render every caller shares the proxy's address.
+    keyGenerator: (req) => ipKeyGenerator(clientIp(req)),
   });
 
   router.get("/health", (_req, res) => {
