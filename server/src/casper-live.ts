@@ -185,6 +185,11 @@ export function mountCasperLive(
     return { asset: n.assetPackage, amount: p.quote.amount, extra: { ...extraOf(n), amountArg: tokenOf(n).amountArg, nonce: p.nonce } };
   };
 
+  // Render (behind Cloudflare) ends TLS and forwards plain http. The x402 adapter builds the 402's
+  // resource.url from req.protocol, which follows X-Forwarded-Proto only when the proxy is trusted.
+  // One hop is enough for req.protocol. It does not make req.ip the visitor's own address: Cloudflare
+  // and Render's proxy both sit in front.
+  app.set("trust proxy", 1);
   app.use(
     paymentMiddleware(
       {

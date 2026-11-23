@@ -226,6 +226,29 @@ describe("a full paid tick over HTTP, buyer paying its own gas", () => {
     facilitatorApiKey: "",
   } as unknown as ServerConfig;
 
+  test("the 402 names the public https address when a TLS proxy forwards the request", async () => {
+    // Render forwards plain http with X-Forwarded-Proto: https. The x402 adapter builds resource.url from
+    // req.protocol, which follows that header only because mountCasperLive trusts the proxy.
+    const meter = new StreamingMeter(store(), { payTo: HELIOS, maxTickSeconds: 10 });
+    const app = express();
+    app.use(express.json());
+    mountCasperLive(app, cfg, meter, { confirm: async () => ({ ok: true as const, payer: BUYER_ADDR, initiator: BUYER.publicKey.toHex(), gasMotes: "0", blockHeight: 1 }) });
+    const server = app.listen(0);
+    try {
+      const session = meter.openSession("eth-usd", BUYER_ADDR);
+      const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/tick?session=${session.id}`;
+      const resourceUrl = async (headers: Record<string, string>) => {
+        const challenge = await fetch(url, { method: "POST", headers });
+        assert.equal(challenge.status, 402);
+        return decodePaymentRequiredHeader(challenge.headers.get("payment-required")!).resource.url;
+      };
+      assert.match(await resourceUrl({ "x-forwarded-proto": "https" }), /^https:\/\/127\.0\.0\.1:\d+\/tick\?session=/);
+      assert.match(await resourceUrl({}), /^http:\/\/127\.0\.0\.1:/); // a direct call, with no proxy, stays http
+    } finally {
+      server.close();
+    }
+  });
+
   test("402 offers buyer-settle with a fresh nonce; the matching transfer buys exactly one tick", async () => {
     const s = store();
     const meter = new StreamingMeter(s, { payTo: HELIOS, maxTickSeconds: 10 });
